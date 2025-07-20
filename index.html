@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fang den Kreis</title>
+  <!-- Google Font Fredoka One -->
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+ </head>
+<body> 
+
+
+  <!-- Info / Einleitung -->
+<div id="info-screen">
+  <h1>🔥 Finger‑Fieber bei „Fang den Kreis“! 🔥</h1>
+  <p>
+    Bist du bereit, deine Reflexe auf die Probe zu stellen? In „Fang den Kreis“  
+    geht’s darum, so schnell wie möglich auf die bunten Kreise zu tippen.  
+    Je schneller du bist und je seltener du danebenklickst, desto höher  
+    klettert dein Punktestand!
+  </p>
+  <p>
+    Wähle zwischen drei Schwierigkeitsgraden oder trainiere deine Skills  
+    im Trainingsmodus.
+  </p>
+  <p>
+    Und keine Sorge: Dein Name bleibt anonym – nimm lieber einen coolen  
+    Nickname wie „BlitzFinger“ oder „Kreisjäger“!
+  </p>
+  <p class="ps">
+  PS: Ich übernehme keine Verantwortung für fliegende Finger oder abstürzende Geräte. 😉
+</p>
+  <button id="info-continue">Weiter</button>
+</div>
+
+  <!-- Namenseingabe -->
+  <div id="name-screen" style="display: none;">
+    <h1>Willkommen!</h1>
+    <p>Wie möchtest du heißen?</p>
+    <input type="text" id="name-input" placeholder="z. B. KlickHeld123" />
+    <br />
+    <small style="color: #e67e22;">
+      ⚠️ Bitte gib keinen echten Namen ein (z. B. „Max Mustermann“).<br>
+      Nimm lieber einen Fantasienamen wie „Klick-König“ oder „ReaktionsHeld123“!
+    </small>
+    <br /><br />
+    <button id="name-submit">Spiel starten</button>
+  </div>
+
+  <div id="start-screen">
+  <h1>Fang den Kreis!</h1>
+  <p>Wähle den Schwierigkeitsgrad:</p>
+  <button id="btn-easy">Leicht</button>
+  <button id="btn-medium">Mittel</button>
+  <button id="btn-hard">Schwer</button>
+
+  <h2>Oder trainiere gezielt:</h2>
+  <button id="btn-training">Trainingsmodus</button>
+
+  <div>Dein Highscore: <span id="highscore-value">0</span></div>
+
+  <!-- Neuer Block: Modus-Highscores -->
+  <div id="mode-highscores">
+    <h3>Highscores (Modi)</h3>
+    <ul>
+      <li>Easy: <span id="hs-easy">0</span> / 333</li>
+      <li>Medium: <span id="hs-medium">0</span> / 333</li>
+      <li>Hard: <span id="hs-hard">0</span> / 333</li>
+      <li>Gesamt: <span id="hs-total">0</span> / 999</li>
+    </ul>
+  </div>
+
+  <h3>Top 5 Spieler</h3>
+  <ul id="highscore-list"></ul>
+</div>
+
+  <!-- Spielbereich -->
+  <div id="game-screen" style="display: none;">
+    <div id="score-box">Punkte: <span id="score">0</span></div>
+    <div id="timer-box">Zeit: <span id="timer">30</span>s</div>
+    <div id="streak-box">Streak: <span id="streak">0</span></div>
+
+    <!-- Level- & XP-Anzeige -->
+    <div id="levelDisplay">Level 0</div>
+    <div id="xpBar"><div id="xpFill"></div></div>
+    <div id="xpAmount">0 XP</div>
+
+    <!-- Reset-Button nur im Trainingsmodus -->
+    <button id="training-reset" style="display: none; margin: 10px;">
+      Training zurücksetzen
+    </button>
+
+    <!-- Spielfeld mit Kreisen -->
+    <div id="game">
+      <div id="circle"></div>
+      <div id="circle2" style="display: none;"></div>
+      <div id="circle3" style="display: none;"></div>
+      <div id="circle4" style="display: none;"></div>
+    </div>
+
+    <!-- Zurück‑Button während des Spiels -->
+    <button id="back-button">Zurück zum Start</button>
+  </div>
+
+  <!-- Spielende -->
+  <div id="game-over-screen" style="display: none; text-align: center;">
+    <h2>Spiel beendet!</h2>
+    <p><strong>Spieler:</strong> <span id="player-name-final"></span></p>
+    <p><strong>Punkte:</strong> <span id="final-score">0</span></p>
+    <p><strong>Reaktionszeit (Ø):</strong> <span id="final-reaction">0</span> s</p>
+    <p><strong>Trefferquote:</strong> <span id="final-accuracy">0%</span></p>
+    <p><strong>Verpasste Klicks:</strong> <span id="final-misses">0</span></p>
+    <p><strong>Persönlicher bester Streak:</strong> <span id="final-persisted-best-streak">0</span></p>
+
+    <!-- Nochmal spielen -->
+    <button id="restart-button">Nochmal spielen</button>
+    <!-- Zurück zum Start nach Game Over -->
+    <button id="gameover-back-button">Zurück zum Start</button>
+  </div>
+<!-- Training Ende Screen -->
+<div id="training-end-screen" style="display:none; text-align:center;">
+  <h2>Training beendet</h2>
+  <p><strong>Erreichtes Level:</strong> <span id="training-final-level">0</span></p>
+  <p><strong>Treffer:</strong> <span id="training-final-hits">0</span></p>
+  <p><strong>Misses:</strong> <span id="training-final-misses">0</span></p>
+  <p><strong>Ø Reaktionszeit:</strong> <span id="training-final-reaction">0.00</span> s</p>
+  <div style="margin-top:14px;">
+    <button id="training-continue">Weiter spielen</button>
+    <button id="training-back">Zurück zum Start</button>
+  </div>
+</div>
+
+  <!-- Hauptskript (importiert alle Module) -->
+  <script type="module" src="main.js"></script>
+</body>
+</html>

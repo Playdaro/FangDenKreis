@@ -1,0 +1,194 @@
+/* Allgemeines Layout */
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: #f0f0f0;
+  text-align: center;
+}
+
+h1, h2 {
+  color: #333;
+}
+
+button {
+  padding: 10px 20px;
+  margin: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  background-color: #007bff;
+  color: white;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+/* Bildschirme */
+#start-screen,
+#name-screen,
+#info-screen,
+#game-screen,
+#game-over-screen {
+  padding: 20px;
+  display: none;
+}
+/* Info‑Screen in Fredoka One */
+#info-screen {
+  font-family: 'Fredoka One', cursive;
+}
+
+#game-screen {
+  position: relative;
+  height: 500px;
+}
+
+#game {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  margin: 20px auto;
+  background-color: white;
+  border: 2px solid #ccc;
+  overflow: hidden;
+}
+
+/* Kreise */
+#circle,
+#circle2,
+#circle3,
+#circle4 {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: red;
+  cursor: pointer;
+}
+
+/* Schwierigkeitsgrade */
+#circle.easy {
+  background-color: red;
+}
+
+#circle.medium {
+  background-color: red;
+}
+
+#circle.hard {
+  background-color: red;
+}
+
+/* Trainingsmodus */
+#circle.training {
+  background-color: green !important;
+  width: 60px;
+  height: 60px;
+}
+
+/* Anzeigeelemente */
+#score-box,
+#timer-box {
+  margin: 10px;
+  font-size: 20px;
+}
+
+#player-name-final {
+  font-weight: bold;
+  font-size: 22px;
+  color: #007bff;
+}
+
+/* Level- & XP-Anzeige */
+#levelDisplay {
+  margin: 10px 0;
+  font-size: 18px;
+  color: #333;
+}
+
+#xpBar {
+  width: 80%;
+  height: 10px;
+  background-color: #ccc;
+  margin: 5px auto;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+#xpFill {
+  width: 0%;
+  height: 100%;
+  background-color: #4caf50;
+  transition: width 0.3s ease;
+}
+
+#xpAmount {
+  margin: 5px 0;
+  font-size: 16px;
+  color: #333;
+}
+#mode-highscores ul {
+  list-style: none;
+  margin: 6px 0 10px;
+  padding: 0;
+  font-size: 14px;
+}
+#mode-highscores li {
+  margin: 2px 0;
+}
+#mode-highscores span {
+  font-weight: 600;
+}
+#training-end-screen {
+  background:#222;
+  color:#fff;
+  padding:24px 28px;
+  max-width:420px;
+  margin:40px auto;
+  border-radius:12px;
+  box-shadow:0 4px 18px rgba(0,0,0,.35);
+}
+#training-end-screen button {
+  margin:6px 8px;
+  padding:10px 18px;
+  cursor:pointer;
+}
+#streak-box {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #2c3e50;
+  color: #f1f1f1;
+  padding: 6px 12px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+  opacity: .9;
+}
+
+#streak-box.streak-pop {
+  animation: streakPop .3s ease;
+}
+
+@keyframes streakPop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+.streak-milestone {
+  background: #27ae60 !important;
+}
+/* Miss-Feedback (kurzer roter Flash des Spielfelds) */
+#game.miss-flash {
+  outline: 3px solid #e74c3c;
+  animation: missPulse 120ms ease-out;
+}
+@keyframes missPulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
