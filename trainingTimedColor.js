@@ -20,8 +20,8 @@ import {
   trainingTimeDisplay, trainLevelDisplay, trainXPFill, trainXPAmount
 } from './core.js';
 
-// Lokaler Interval-Handler für Ballwechsel
-let ballInterval = null;
+// Lokaler Interval-Handler für Ballwechsel (Spawn)
+let spawnIntervalId = null;
 
 // Farboptionen mit Namen für TTS
 const COLOR_OPTIONS = [
@@ -58,7 +58,9 @@ function speak(text) {
 // Platziert Kreise und spricht die korrekte Farbe
 function spawnBalls() {
   const count = getCountForLevel(trainLevel);
-  const chosen = COLOR_OPTIONS.sort(() => 0.5 - Math.random()).slice(0, count);
+  const chosen = COLOR_OPTIONS
+    .sort(() => 0.5 - Math.random())
+    .slice(0, count);
 
   // Hauptkreis
   circle.style.background = chosen[0].code;
@@ -84,6 +86,13 @@ function spawnBalls() {
   speak(correctColorName);
 }
 
+// Startet oder reset­t den Ball‑Spawn‑Loop
+function startSpawnTimer() {
+  clearInterval(spawnIntervalId);
+  spawnBalls();
+  spawnIntervalId = setInterval(spawnBalls, getIntervalForLevel(trainLevel));
+}
+
 // Klick‐Handler
 function handleBallClick(e) {
   const clicked = e.target.dataset.color;
@@ -93,6 +102,8 @@ function handleBallClick(e) {
   if (clicked === correctColorName) {
     incrementScore();
     incrementTrainXP();
+    // Neuer Spawn sofort, 60s‑Timer bleibt unverändert
+    startSpawnTimer();
   } else {
     incrementMisses();
     triggerMissFlash();
@@ -113,7 +124,7 @@ function cleanup() {
     c.removeEventListener('click', handleBallClick)
   );
   gameArea.removeEventListener('click', handleMissClick);
-  clearInterval(ballInterval);
+  clearInterval(spawnIntervalId);
 }
 
 // Wird nach Countdown-Ende aufgerufen: räumt auf, zeigt GameOver und bindet Buttons
@@ -160,19 +171,13 @@ export function startTrainingTimedColor() {
   gameOverScreen.style.display = 'none';
   document.getElementById('timed-training-ui').style.display = 'block';
 
-  // Screens
-  startScreen.style.display    = 'none';
-  gameScreen.style.display     = 'block';
-  gameOverScreen.style.display = 'none';
-  document.getElementById('timed-training-ui').style.display = 'block';
-
-  // ← **HIER** Back‑Button im laufenden Training binden:
+  // Back‑Button im laufenden Training binden
   const backBtn = document.getElementById('back-button');
   if (backBtn) {
     backBtn.onclick = () => {
       cleanup();                     // räumt Listener & Intervalle auf
-      clearInterval(countdown);      // stoppe deinen Countdown
-      clearInterval(ballInterval);   // stoppe die Ball‑Spawns
+      clearInterval(countdown);      // stoppe deinen 60s‑Countdown
+      clearInterval(spawnIntervalId); // stoppe Ball‑Spawns
       document.getElementById('timed-training-ui').style.display = 'none';
       gameScreen.style.display  = 'none';
       startScreen.style.display = 'block';
@@ -187,20 +192,19 @@ export function startTrainingTimedColor() {
     if (trainingTimeDisplay) trainingTimeDisplay.textContent = remaining + 's';
     if (remaining <= 0) {
       clearInterval(countdown);
-      clearInterval(ballInterval);
+      clearInterval(spawnIntervalId);
       endTrainingTimedColor();
     }
   }, 1000);
 
-  // Ball‑Swap‑Interval starten
-  ballInterval = setInterval(spawnBalls, getIntervalForLevel(trainLevel));
+  // Ball‑Spawn‑Loop starten
+  startSpawnTimer();
 
   // Klick‑Listener setzen
   [circle, circle2, circle3, circle4].forEach(c =>
     c.addEventListener('click', handleBallClick)
   );
   gameArea.addEventListener('click', handleMissClick);
-
-  // Erstes Spawn
-  spawnBalls();
 }
+
+// Ende Datei
