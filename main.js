@@ -10,6 +10,13 @@ import { startMediumMode } from './medium.js';
 import { startHardMode }   from './hard.js';
 import { startTraining }   from './training.js';
 import { updateHighscoreUI } from './highscore.js';
+import { startEasyAudioColorMode } from './easyaudioColor.js';
+import { startMediumAudioColorMode } from './mediumAudioColor.js';
+import { startHardAudioColorMode } from './hardAudioColor.js';
+import { startTrainingTimedColor } from './trainingTimedColor.js';
+
+
+
 
 window.addEventListener('DOMContentLoaded', () => {
   // Core Setup (DOM-Refs etc.)
@@ -20,6 +27,12 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-medium')  .addEventListener('click', startMediumMode);
   document.getElementById('btn-hard')    .addEventListener('click', startHardMode);
   document.getElementById('btn-training').addEventListener('click', startTraining);
+  document.getElementById('btn-easyaudio').addEventListener('click', startEasyAudioColorMode);
+  document.getElementById('btn-mediaudio').addEventListener('click', startMediumAudioColorMode);
+  document.getElementById('btn-hardaudio').addEventListener('click', startHardAudioColorMode);
+  document.getElementById('btn-timedtrain').addEventListener('click', startTrainingTimedColor);
+        
+
 
   // Intro -> Name Screen
   const infoContinue = document.getElementById('info-continue');

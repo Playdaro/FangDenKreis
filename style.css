@@ -192,3 +192,12 @@ button:hover {
   50%  { transform: scale(1.02); }
   100% { transform: scale(1); }
 }
+.icon-circle {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: red;
+  margin-right: 6px;
+  vertical-align: middle;
+}

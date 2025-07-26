@@ -37,6 +37,35 @@ export let stats;
 export let currentLevel;
 export let xp;
 
+// --- Audio-Training XP/Level (eigenständig) ---
+export let audioTrainXP = 0;
+export let audioTrainLevel = 0;
+export const audioTrainLevels = [
+  { colorsCount: 2, requiredHits: 10 },
+  { colorsCount: 3, requiredHits: 12 },
+  { colorsCount: 4, requiredHits: 15 },
+  { colorsCount: 4, requiredHits: 20 }
+];
+export let audioTrainingLevelDisplay, audioTrainingXPFill, audioTrainingXPAmount;
+
+// core.js (ganz oben)
+
+// Trainings‑State
+export let trainXP = 0;
+export let trainLevel = 1;
+export const XP_PER_LEVEL = 100;
+export let trainingTime = 60;               // 60 s Gesamt
+export let trainingTimerInterval = null;    // Ball‑Wechsel
+export let trainingCountdownInterval = null;// Countdown‑Timer
+
+// DOM‑Refs für das 60 s‑UI
+export let trainingTimeDisplay;
+export let trainLevelDisplay;
+export let trainXPFill;
+export let trainXPAmount;
+
+
+
 // ---------- Modus-Konfiguration ----------
 export const MODE_CONFIG = {
   easy:   { appearTime: 1800, durationSec: 30, maxMisses: 5 },
@@ -180,9 +209,11 @@ export function baseEndGame() {
   playerNameFinal.textContent = playerName || '-';
 }
 
+// EndGame-Override-Mechanismus
 let endGameFn = baseEndGame;
 export function setEndGame(fn) { endGameFn = fn || baseEndGame; }
 export function endGame() { endGameFn(); }
+
 
 // ---------- Initialisierung ----------
 export function initCore() {
@@ -218,11 +249,22 @@ export function initCore() {
   trainingFinalMisses   = document.getElementById('training-final-misses');
   trainingFinalReaction = document.getElementById('training-final-reaction');
   // <<< ENDE NEU >>>
+  audioTrainingLevelDisplay = document.getElementById('audio-training-levelDisplay');
+  audioTrainingXPFill        = document.getElementById('audio-training-xpFill');
+  audioTrainingXPAmount      = document.getElementById('audio-training-xpAmount');
+
 
   levelDisplay = document.getElementById("levelDisplay");
   xpFill       = document.getElementById("xpFill");
   xpAmount     = document.getElementById("xpAmount");
   resetBtn     = document.getElementById("training-reset");
+
+    // Am Ende von initCore():
+  trainingTimeDisplay = document.getElementById('training-time');
+  trainLevelDisplay   = document.getElementById('train-level');
+  trainXPFill         = document.getElementById('train-xp-fill');
+  trainXPAmount       = document.getElementById('train-xp-amount');
+
 
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
@@ -384,4 +426,67 @@ export function endTraining() {
       startScreen.style.display = "block";
     };
   }
+}
+export function resetAudioTraining() {
+  audioTrainXP = 0;
+  audioTrainLevel = 0;
+  if (audioTrainingLevelDisplay) audioTrainingLevelDisplay.textContent = 'Level 0';
+  if (audioTrainingXPFill)       audioTrainingXPFill.style.width = '0%';
+  if (audioTrainingXPAmount)     audioTrainingXPAmount.textContent = '0 XP';
+}
+
+export function incrementAudioTrainingXP() {
+  const lvlCfg = audioTrainLevels[audioTrainLevel];
+  audioTrainXP++;
+  // Level-Up prüfen
+  if (audioTrainXP >= lvlCfg.requiredHits && audioTrainLevel < audioTrainLevels.length - 1) {
+    audioTrainXP = 0;
+    audioTrainLevel++;
+    if (audioTrainingLevelDisplay) audioTrainingLevelDisplay.textContent = 'Level ' + audioTrainLevel;
+  }
+  // UI updaten
+  const pct = Math.min(100, (audioTrainXP / audioTrainLevels[audioTrainLevel].requiredHits) * 100);
+  if (audioTrainingXPFill)   audioTrainingXPFill.style.width   = pct + '%';
+  if (audioTrainingXPAmount) audioTrainingXPAmount.textContent = audioTrainXP + ' XP';
+}
+export function resetTimedTraining() {
+  trainXP = 0;
+  trainLevel = 1;
+  trainingTime = 60;
+  if (trainLevelDisplay)   trainLevelDisplay.textContent   = 'Level 1';
+  if (trainXPFill)         trainXPFill.style.width         = '0%';
+  if (trainXPAmount)       trainXPAmount.textContent       = '0 XP';
+  if (trainingTimeDisplay) trainingTimeDisplay.textContent = '60s';
+}
+
+export function incrementTrainXP(amount = 1) {
+  trainXP += amount;
+  if (trainXP >= XP_PER_LEVEL) {
+    trainXP -= XP_PER_LEVEL;
+    trainLevel++;
+    if (trainLevelDisplay) trainLevelDisplay.textContent = 'Level ' + trainLevel;
+    
+  }
+  const pct = Math.min(100, (trainXP / XP_PER_LEVEL) * 100);
+  if (trainXPFill)   trainXPFill.style.width     = pct + '%';
+  if (trainXPAmount) trainXPAmount.textContent   = trainXP + ' XP';
+}
+
+export function startTrainingTimer() {
+  clearInterval(trainingCountdownInterval);
+  trainingCountdownInterval = setInterval(() => {
+    trainingTime--;
+    if (trainingTimeDisplay) trainingTimeDisplay.textContent = trainingTime + 's';
+    if (trainingTime <= 0) {
+      clearInterval(trainingCountdownInterval);
+      clearInterval(trainingTimerInterval);
+      endTimedTraining();   // s.u.
+    }
+  }, 1000);
+}
+
+// Endet das Training und zeigt den Game‑Over‑Screen
+export function endTimedTraining() {
+  clearInterval(trainingTimerInterval);
+  baseEndGame();
 }

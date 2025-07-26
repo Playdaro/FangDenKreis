@@ -51,28 +51,28 @@
   <div id="start-screen">
   <h1>Fang den Kreis!</h1>
   <p>Wähle den Schwierigkeitsgrad:</p>
-  <button id="btn-easy">Leicht</button>
-  <button id="btn-medium">Mittel</button>
-  <button id="btn-hard">Schwer</button>
-
-  <h2>Oder trainiere gezielt:</h2>
-  <button id="btn-training">Trainingsmodus</button>
-
-  <div>Dein Highscore: <span id="highscore-value">0</span></div>
+  <button id="btn-easy">Leicht 🔴</button>
+  <button id="btn-medium">Mittel 🔴</button>
+  <button id="btn-hard">Schwer 🔴</button>
+  <button id="btn-training">Trainingsmodus 🔴</button>
 
   <!-- Neuer Block: Modus-Highscores -->
   <div id="mode-highscores">
-    <h3>Highscores (Modi)</h3>
+    <h3>Punkte in Leicht 🔴, Mittel 🔴, Schwer 🔴</h3>
     <ul>
-      <li>Easy: <span id="hs-easy">0</span> / 333</li>
-      <li>Medium: <span id="hs-medium">0</span> / 333</li>
-      <li>Hard: <span id="hs-hard">0</span> / 333</li>
+      <li>Einfach🔴: <span id="hs-easy">0</span> / 333</li>
+      <li>Mittel🔴: <span id="hs-medium">0</span> / 333</li>
+      <li>Schwer🔴: <span id="hs-hard">0</span> / 333</li>
       <li>Gesamt: <span id="hs-total">0</span> / 999</li>
     </ul>
   </div>
 
-  <h3>Top 5 Spieler</h3>
-  <ul id="highscore-list"></ul>
+  <!-- Audio Modi Button  -->
+  <button id="btn-easyaudio">Leicht 👂</button>
+  <button id="btn-mediaudio">Mittel 🎧</button>
+  <button id="btn-hardaudio">Schwer 🎶</button>
+  <button id="btn-timedtrain">Timed‑Training ⏱️</button>
+
 </div>
 
   <!-- Spielbereich -->
@@ -80,6 +80,22 @@
     <div id="score-box">Punkte: <span id="score">0</span></div>
     <div id="timer-box">Zeit: <span id="timer">30</span>s</div>
     <div id="streak-box">Streak: <span id="streak">0</span></div>
+    <div id="audio-training-ui" style="display:none; margin-top:10px;">
+  <div id="audio-training-levelDisplay">Level 0</div>
+  <div id="audio-training-xpBar" style="background:#ddd; width:100%; height:12px; border-radius:6px; overflow:hidden;">
+    <div id="audio-training-xpFill" style="width:0%; height:100%; background:#27ae60;"></div>
+  </div>
+  <div id="audio-training-xpAmount">0 XP</div>
+</div>
+
+<div id="timed-training-ui" style="display:none; margin-top:10px;">
+  <span id="training-time">60s</span>
+  <div id="train-level">Level 1</div>
+  <div style="background:#ddd;width:100%;height:12px;border-radius:6px;overflow:hidden;">
+    <div id="train-xp-fill" style="width:0%;height:100%;background:#27ae60;"></div>
+  </div>
+  <div id="train-xp-amount">0 XP</div>
+</div>
 
     <!-- Level- & XP-Anzeige -->
     <div id="levelDisplay">Level 0</div>
