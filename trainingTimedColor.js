@@ -136,13 +136,17 @@ function endTrainingTimedColor() {
   // Button‑Handler setzen
   const restartBtn = document.getElementById('restart-button');
   if (restartBtn) {
+    // Neuer Button‑Text
+    restartBtn.textContent = 'Weiter spielen';
     restartBtn.addEventListener('click', () => {
       document.getElementById('timed-training-ui').style.display = 'block';
       gameOverScreen.style.display = 'none';
       gameScreen.style.display     = 'block';
-      startTrainingTimedColor();
+      // Start ohne Statreset
+      resumeTrainingTimedColor();
     });
   }
+
   const goBackBtn = document.getElementById('gameover-back-button');
   if (goBackBtn) {
     goBackBtn.addEventListener('click', () => {
@@ -154,16 +158,21 @@ function endTrainingTimedColor() {
   }
 }
 
-// Trainingsmodus starten
-export function startTrainingTimedColor() {
-  // State & UI Reset
-  resetTimedTraining();
-  resetScore();
-  resetMisses();
-  if (trainingTimeDisplay) trainingTimeDisplay.textContent = '60s';
-  if (trainLevelDisplay)   trainLevelDisplay.textContent   = 'Level 1';
-  if (trainXPFill)         trainXPFill.style.width         = '0%';
-  if (trainXPAmount)       trainXPAmount.textContent       = '0 XP';
+// Trainingsmodus starten oder fortsetzen
+export function startTrainingTimedColor(resetStats = true) {
+  // State & UI Reset nur, wenn resetStats true
+  if (resetStats) {
+    resetTimedTraining();
+    resetScore();
+    resetMisses();
+    if (trainingTimeDisplay) trainingTimeDisplay.textContent = '60s';
+    if (trainLevelDisplay)   trainLevelDisplay.textContent   = 'Level 1';
+    if (trainXPFill)         trainXPFill.style.width         = '0%';
+    if (trainXPAmount)       trainXPAmount.textContent       = '0 XP';
+  } else {
+    // Tempo‑UI zurücksetzen, XP/Level behalten
+    if (trainingTimeDisplay) trainingTimeDisplay.textContent = '60s';
+  }
 
   // Screens einblenden
   startScreen.style.display    = 'none';
@@ -175,9 +184,9 @@ export function startTrainingTimedColor() {
   const backBtn = document.getElementById('back-button');
   if (backBtn) {
     backBtn.onclick = () => {
-      cleanup();                     // räumt Listener & Intervalle auf
-      clearInterval(countdown);      // stoppe deinen 60s‑Countdown
-      clearInterval(spawnIntervalId); // stoppe Ball‑Spawns
+      cleanup();
+      clearInterval(countdown);
+      clearInterval(spawnIntervalId);
       document.getElementById('timed-training-ui').style.display = 'none';
       gameScreen.style.display  = 'none';
       startScreen.style.display = 'block';
@@ -205,6 +214,12 @@ export function startTrainingTimedColor() {
     c.addEventListener('click', handleBallClick)
   );
   gameArea.addEventListener('click', handleMissClick);
+}
+
+// Hilfsfunktion: Fortsetzen ohne Reset
+function resumeTrainingTimedColor() {
+  // Gleiche Logik wie startTrainingTimedColor(false)
+  startTrainingTimedColor(false);
 }
 
 // Ende Datei
