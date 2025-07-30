@@ -1,4 +1,4 @@
-// main.js – Refactor + Best-Streak-Anzeige
+// main.js – Refactor + Best‑Streak‑Anzeige + Modal‑Logik + Dekor‑Bouncing
 
 import { 
   initCore, 
@@ -10,31 +10,26 @@ import { startMediumMode } from './medium.js';
 import { startHardMode }   from './hard.js';
 import { startTraining }   from './training.js';
 import { updateHighscoreUI } from './highscore.js';
-import { startEasyAudioColorMode } from './easyaudioColor.js';
+import { startEasyAudioColorMode }   from './easyaudioColor.js';
 import { startMediumAudioColorMode } from './mediumAudioColor.js';
-import { startHardAudioColorMode } from './hardAudioColor.js';
-import { startTrainingTimedColor } from './trainingTimedColor.js';
-
-
-
+import { startHardAudioColorMode }   from './hardAudioColor.js';
+import { startTrainingTimedColor }   from './trainingTimedColor.js';
 
 window.addEventListener('DOMContentLoaded', () => {
   // Core Setup (DOM-Refs etc.)
   initCore();
 
   // Buttons (Modi)
-  document.getElementById('btn-easy')    .addEventListener('click', startEasyMode);
-  document.getElementById('btn-medium')  .addEventListener('click', startMediumMode);
-  document.getElementById('btn-hard')    .addEventListener('click', startHardMode);
-  document.getElementById('btn-training').addEventListener('click', startTraining);
+  document.getElementById('btn-easy')      .addEventListener('click', startEasyMode);
+  document.getElementById('btn-medium')    .addEventListener('click', startMediumMode);
+  document.getElementById('btn-hard')      .addEventListener('click', startHardMode);
+  document.getElementById('btn-training')  .addEventListener('click', startTraining);
   document.getElementById('btn-easyaudio').addEventListener('click', startEasyAudioColorMode);
-  document.getElementById('btn-mediaudio').addEventListener('click', startMediumAudioColorMode);
-  document.getElementById('btn-hardaudio').addEventListener('click', startHardAudioColorMode);
+  document.getElementById('btn-mediaudio') .addEventListener('click', startMediumAudioColorMode);
+  document.getElementById('btn-hardaudio') .addEventListener('click', startHardAudioColorMode);
   document.getElementById('btn-timedtrain').addEventListener('click', startTrainingTimedColor);
-        
 
-
-  // Intro -> Name Screen
+  // Intro → Name Screen
   const infoContinue = document.getElementById('info-continue');
   if (infoContinue) {
     infoContinue.addEventListener('click', () => {
@@ -59,16 +54,75 @@ window.addEventListener('DOMContentLoaded', () => {
       document.getElementById('name-screen').style.display  = 'none';
       document.getElementById('start-screen').style.display = 'block';
       updateHighscoreUI();
-      updateBestStreakDisplay(); // neu
+      updateBestStreakDisplay();
     });
   }
 
   // Highscores initial
   updateHighscoreUI();
-
-  // Falls Nutzer bereits gespeichert war (initCore setzt playerName)
-  // Wird die Best-Streak-Anzeige hier aktualisiert (falls Element existiert)
   updateBestStreakDisplay();
 
-  console.log('▶ main.js initialisiert (Refactor + BestStreak)');
+  // Modal‑Logik für Visuelles Training (Speed‑Modi)
+  const btnVisual   = document.getElementById('btn-visual');
+  const visualModal = document.getElementById('visual-modal');
+  const visualClose = visualModal?.querySelector('.modal-close');
+  if (btnVisual && visualModal && visualClose) {
+    btnVisual.addEventListener('click', () => { visualModal.style.display = 'flex'; });
+    visualClose.addEventListener('click', () => { visualModal.style.display = 'none'; });
+    visualModal.addEventListener('click', e => {
+      if (e.target === visualModal) visualModal.style.display = 'none';
+    });
+  }
+
+  // Modal‑Logik für Sound‑Challenge (Hör‑Reaktion)
+  const btnAudio   = document.getElementById('btn-audio');
+  const audioModal = document.getElementById('audio-modal');
+  const audioClose = audioModal?.querySelector('.modal-close');
+  if (btnAudio && audioModal && audioClose) {
+    btnAudio.addEventListener('click', () => { audioModal.style.display = 'flex'; });
+    audioClose.addEventListener('click', () => { audioModal.style.display = 'none'; });
+    audioModal.addEventListener('click', e => {
+      if (e.target === audioModal) audioModal.style.display = 'none';
+    });
+  }
+
+  // Starte die Bounce‑Animation für die Dekor‑Kreise
+  startDecorBouncing();
+
+  console.log('▶ main.js initialisiert (Refactor + Modals + Bouncing)');
 });
+
+
+/**
+ * Bewegungs‑Routine für Dekor‑Kreise mit Kollision an Container‑Rändern
+ */
+function startDecorBouncing() {
+  const container = document.getElementById('start-screen');
+  const size = 16;
+  const rect = container.getBoundingClientRect();
+
+  // Initialisiere alle Kreise
+  const circles = Array.from(container.querySelectorAll('.decor-circle')).map(el => {
+    const x = parseFloat(getComputedStyle(el).getPropertyValue('--left'));
+    const y = parseFloat(getComputedStyle(el).getPropertyValue('--top'));
+    const vx = (Math.random() * 2 + 1) * (Math.random() < 0.5 ? 1 : -1);
+    const vy = (Math.random() * 2 + 1) * (Math.random() < 0.5 ? 1 : -1);
+    return { el, x, y, vx, vy };
+  });
+
+  // Animationsschleife
+  function animate() {
+    circles.forEach(obj => {
+      obj.x += obj.vx;
+      obj.y += obj.vy;
+      // Stoß an horizontalen Kanten
+      if (obj.x <= 0 || obj.x + size >= rect.width) obj.vx *= -1;
+      // Stoß an vertikalen Kanten
+      if (obj.y <= 0 || obj.y + size >= rect.height) obj.vy *= -1;
+      obj.el.style.left = obj.x + 'px';
+      obj.el.style.top  = obj.y + 'px';
+    });
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
