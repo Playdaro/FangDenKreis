@@ -1,4 +1,4 @@
-// main.js – Refactor + Best-Streak-Anzeige + Modal-Logik + Dekor-Bouncing + Startscreen-Audio
+// main.js – Refactor + Best-Streak-Anzeige + Modal-Logik + Dekor-Bouncing + Startscreen-Audio + Reduced-Motion / Performance-Fallback
 
 import { 
   initCore, 
@@ -15,6 +15,14 @@ import { startMediumAudioColorMode } from './mediumAudioColor.js';
 import { startHardAudioColorMode }   from './hardAudioColor.js';
 import { startTrainingTimedColor }   from './trainingTimedColor.js';
 
+// === Feature flags / environment checks ===
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const lowConcurrency = (() => {
+  const hc = navigator.hardwareConcurrency || 4;
+  const dm = navigator.deviceMemory || 4; // in GB, may be undefined in some browsers
+  return hc <= 2 || (dm && dm <= 2);
+})();
+
 // === Startscreen-Audio ===
 let startScreenAudio = null;
 let startScreenAudioEnabled = false;
@@ -22,7 +30,7 @@ let startScreenAudioFadeInterval = null;
 
 function initStartscreenAudio() {
   if (startScreenAudio) return;
-  startScreenAudio = new Audio('Frontmelodie.wav'); // Datei muss im gleichen Ordner liegen
+  startScreenAudio = new Audio('Frontmelodie.wav'); // muss im gleichen Ordner liegen
   startScreenAudio.loop = true;
   startScreenAudio.preload = 'auto';
   startScreenAudio.volume = 0;
@@ -87,7 +95,7 @@ function enableStartscreenMusicOnce() {
   if (startScreenAudioEnabled) return;
   if (!startScreenAudio) return;
   startScreenAudio.play().catch(() => {
-    // Autoplay blockiert bis Interaktion; wird durch waitForInteractionToStartAudio gedeckt
+    // Autoplay blockiert bis zur Interaktion; wird durch waitForInteractionToStartAudio gedeckt
   });
   fadeInStartscreenAudio(0.15, 800);
   startScreenAudioEnabled = true;
@@ -115,7 +123,7 @@ function waitForInteractionToStartAudio() {
 }
 
 /**
- * Zeigt einen kurzen Hinweis, dass der Nutzer klicken muss, um Musik zu aktivieren.
+ * Hinweis anzeigen, dass Musik durch Tap aktiviert wird.
  */
 function showAudioPrompt() {
   const hint = document.createElement('div');
@@ -140,36 +148,30 @@ function showAudioPrompt() {
 }
 
 /**
- * Zeigt den Startscreen, macht UI-Updates, und bereitet Audio-Start (nach Interaktion) vor.
+ * Zeigt den Startscreen, aktualisiert UI, und bereitet Audio-Start vor.
  */
 function showStartScreen() {
-  // Blende andere Screens aus
   ['info-screen', 'name-screen', 'game-screen', 'game-over-screen', 'training-end-screen'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
 
-  // Zeige Startscreen
   const start = document.getElementById('start-screen');
   if (start) start.style.display = 'block';
 
-  // UI aktualisieren
   updateHighscoreUI();
   updateBestStreakDisplay();
 
-  // Musik erst nach Benutzerinteraktion starten
+  // Musik erst nach wirklicher Interaction starten, Hinweis geben
   showAudioPrompt();
   waitForInteractionToStartAudio();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  // Core Setup (DOM-Refs etc.)
   initCore();
-
-  // Init Audio (mute button etc.)
   initStartscreenAudio();
 
-  // Mode-Buttons: stoppe Startscreen-Musik, dann starte Modus
+  // Mode-Buttons: Musik stoppen, dann Modus starten
   document.getElementById('btn-easy')      .addEventListener('click', () => { stopStartscreenMusic(); startEasyMode(); });
   document.getElementById('btn-medium')    .addEventListener('click', () => { stopStartscreenMusic(); startMediumMode(); });
   document.getElementById('btn-hard')      .addEventListener('click', () => { stopStartscreenMusic(); startHardMode(); });
@@ -201,16 +203,15 @@ window.addEventListener('DOMContentLoaded', () => {
       if (/\d{4,}/.test(raw)) { alert('Bitte keinen echten Namen.'); return; }
 
       localStorage.setItem('lastPlayerName', raw);
-      showStartScreen(); // hier ist Interaktion, Musik kann direkt loslaufen
+      showStartScreen(); // echte Interaktion -> Musik startet
     });
   }
 
-  // Wenn schon ein Name gespeichert ist, direkt Startscreen zeigen
+  // Wiederkehrender Spieler
   const existingName = localStorage.getItem('lastPlayerName');
   if (existingName) {
     showStartScreen();
   } else {
-    // Zeige Info- oder Name-Screen als Einstieg
     const instructionsSeen = localStorage.getItem('instructionsSeen');
     if (instructionsSeen) {
       document.getElementById('name-screen').style.display = 'block';
@@ -219,7 +220,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Rückkehr zum Startscreen (z.B. aus Spiel / Game Over)
+  // Zurück zum Startscreen
   const backBtn = document.getElementById('back-button');
   if (backBtn) {
     backBtn.addEventListener('click', () => {
@@ -233,11 +234,10 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Highscores & Streak initial laden (wenn Startscreen sichtbar wurde)
   updateHighscoreUI();
   updateBestStreakDisplay();
 
-  // Modal-Logik für Visuelles Training (Speed-Modi)
+  // Modal-Logik Visuell
   const btnVisual   = document.getElementById('btn-visual');
   const visualModal = document.getElementById('visual-modal');
   const visualClose = visualModal?.querySelector('.modal-close');
@@ -249,7 +249,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Modal-Logik für Sound-Challenge (Hör-Reaktion)
+  // Modal-Logik Audio
   const btnAudio   = document.getElementById('btn-audio');
   const audioModal = document.getElementById('audio-modal');
   const audioClose = audioModal?.querySelector('.modal-close');
@@ -261,7 +261,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Starte die Bounce-Animation für die Dekor-Kreise
+  // Bounce-Animation (wenn nicht reduced-motion)
   document.body.classList.add('use-js-bouncing');
   startDecorBouncing();
 
@@ -270,18 +270,32 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
 /**
- * Bewegungs-Routine für Dekor-Kreise mit Kollision an Container-Rändern
+ * Bewegungs-Routine für Dekor-Kreise mit Kollision am Rand.
+ * Berücksichtigt reduced-motion und niedrige Hardware für Throttling.
  */
 function startDecorBouncing() {
   const container = document.getElementById('start-screen');
   const size = 16;
 
-  // Dynamisch aktuelle Bounds holen
+  // Wenn reduced motion aktiv: keine Bewegung
+  if (prefersReducedMotion) {
+    // Setze initiale Positionen aus CSS-Variablen, keine Animation
+    Array.from(container.querySelectorAll('.decor-circle')).forEach(el => {
+      const x = parseFloat(getComputedStyle(el).getPropertyValue('--left')) || 0;
+      const y = parseFloat(getComputedStyle(el).getPropertyValue('--top')) || 0;
+      el.style.left = x + 'px';
+      el.style.top  = y + 'px';
+    });
+    return;
+  }
+
   function getBounds() {
     return container.getBoundingClientRect();
   }
 
   let bounds = getBounds();
+  let frameCount = 0;
+  const frameSkip = lowConcurrency ? 2 : 1; // auf schwacher Hardware nur jede zweite Frame aktualisieren
 
   const circles = Array.from(container.querySelectorAll('.decor-circle')).map(el => {
     const initialX = parseFloat(getComputedStyle(el).getPropertyValue('--left')) || Math.random() * (bounds.width - size);
@@ -294,30 +308,33 @@ function startDecorBouncing() {
   });
 
   function animate() {
-    bounds = getBounds(); // aktualisiere bei Resize
-    circles.forEach(obj => {
-      obj.x += obj.vx;
-      obj.y += obj.vy;
+    frameCount++;
+    if (frameCount % frameSkip === 0) {
+      bounds = getBounds();
+      circles.forEach(obj => {
+        obj.x += obj.vx;
+        obj.y += obj.vy;
 
-      if (obj.x <= 0) {
-        obj.x = 0;
-        obj.vx *= -1;
-      } else if (obj.x + size >= bounds.width) {
-        obj.x = bounds.width - size;
-        obj.vx *= -1;
-      }
+        if (obj.x <= 0) {
+          obj.x = 0;
+          obj.vx *= -1;
+        } else if (obj.x + size >= bounds.width) {
+          obj.x = bounds.width - size;
+          obj.vx *= -1;
+        }
 
-      if (obj.y <= 0) {
-        obj.y = 0;
-        obj.vy *= -1;
-      } else if (obj.y + size >= bounds.height) {
-        obj.y = bounds.height - size;
-        obj.vy *= -1;
-      }
+        if (obj.y <= 0) {
+          obj.y = 0;
+          obj.vy *= -1;
+        } else if (obj.y + size >= bounds.height) {
+          obj.y = bounds.height - size;
+          obj.vy *= -1;
+        }
 
-      obj.el.style.left = obj.x + 'px';
-      obj.el.style.top  = obj.y + 'px';
-    });
+        obj.el.style.left = obj.x + 'px';
+        obj.el.style.top  = obj.y + 'px';
+      });
+    }
     requestAnimationFrame(animate);
   }
 

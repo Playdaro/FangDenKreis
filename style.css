@@ -1,28 +1,64 @@
 /* Allgemeines Layout */
-body {
+html, body {
   margin: 0;
+  padding: 0;
+  height: 100%;
   font-family: Arial, sans-serif;
   background-color: #f0f0f0;
   text-align: center;
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
 }
 
+body {
+  position: relative;
+}
+
+/* Safe area support (iOS notch etc.) */
+#start-screen {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Typografie */
 h1, h2 {
   color: #333;
+  margin: 0.25em 0;
 }
 
+/* Buttons: responsive, touchfreundlich */
 button {
-  padding: 10px 20px;
-  margin: 10px;
-  font-size: 16px;
+  padding: 12px 18px;
+  margin: 6px;
+  font-size: clamp(14px, 4vw, 18px);
   cursor: pointer;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   background-color: #007bff;
   color: white;
-  transition: background-color 0.3s;
+  transition: transform .1s ease, filter .2s ease, background-color .2s ease;
+  min-height: 44px; /* Touchziel */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
+
+button:active {
+  transform: scale(0.97);
+}
+
+button:focus-visible {
+  outline: 3px solid #ffe066;
+  outline-offset: 2px;
+}
+
 button:hover {
-  background-color: #0056b3;
+  filter: brightness(1.05);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Bildschirme */
@@ -30,9 +66,11 @@ button:hover {
 #name-screen,
 #info-screen,
 #game-screen,
-#game-over-screen {
+#game-over-screen,
+#training-end-screen {
   padding: 20px;
   display: none;
+  box-sizing: border-box;
 }
 
 /* Info-Screen in Fredoka One */
@@ -43,19 +81,23 @@ button:hover {
 /* Game-Screen */
 #game-screen {
   position: relative;
-  height: 500px;
+  height: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
 }
 #game {
   position: relative;
   width: 100%;
+  max-width: 600px;
   height: 400px;
   margin: 20px auto;
   background-color: white;
   border: 2px solid #ccc;
   overflow: hidden;
+  border-radius: 10px;
 }
 
-/* Kreise */
+/* Kreise im Spiel */
 #circle,
 #circle2,
 #circle3,
@@ -66,6 +108,7 @@ button:hover {
   border-radius: 50%;
   background-color: red;
   cursor: pointer;
+  touch-action: manipulation;
 }
 #circle.training {
   background-color: green !important;
@@ -125,20 +168,6 @@ button:hover {
   margin: 5px 0;
   font-size: 16px;
   color: #333;
-}
-
-/* Modus-Highscores */
-#mode-highscores ul {
-  list-style: none;
-  margin: 6px 0 10px;
-  padding: 0;
-  font-size: 14px;
-}
-#mode-highscores li {
-  margin: 2px 0;
-}
-#mode-highscores span {
-  font-weight: 600;
 }
 
 /* Training-End Screen */
@@ -230,7 +259,7 @@ button:hover {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  overflow: hidden;
+  overflow: hidden; /* kein Scroll */
   padding: 0 1rem;
   box-sizing: border-box;
 }
@@ -256,6 +285,8 @@ button:hover {
   flex-direction: column;
   gap: 0.75rem;
   margin-top: 1rem;
+  width: 100%;
+  max-width: 500px;
 }
 @media (min-width: 600px) {
   .mode-buttons {
@@ -263,26 +294,31 @@ button:hover {
   }
 }
 
-/* Dekorative Kreise hinter Text */
+/* Dekorative Kreise hinter Text, responsive Größe */
 .decor-circle {
   position: absolute;
   top: var(--top);
   left: var(--left);
-  width: 16px;
-  height: 16px;
+  width: clamp(12px, 3vw, 20px);
+  height: clamp(12px, 3vw, 20px);
   border-radius: 50%;
   background-color: var(--color);
   opacity: 0.3;
   pointer-events: none;
-  /* entferne: animation: …; */
+  will-change: left, top;
 }
 
-@keyframes decorPulse {
-  from { transform: scale(1); }
-  to   { transform: scale(1.3); }
-}
-
-@keyframes floatDecor {
-  0%, 100% { transform: translate(0, 0); }
-  50%      { transform: translate(30px, -30px); }
+/* Reduced motion: Bounce deaktivieren bzw. minimal */
+@media (prefers-reduced-motion: reduce) {
+  #start-screen {
+    animation: none;
+  }
+  .decor-circle {
+    transition: opacity .6s ease-in-out;
+    animation: decorPulse 3s infinite alternate;
+  }
+  @keyframes decorPulse {
+    from { opacity: 0.25; }
+    to { opacity: 0.4; }
+  }
 }
