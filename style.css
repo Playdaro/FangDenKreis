@@ -35,12 +35,12 @@ button:hover {
   display: none;
 }
 
-/* Info‑Screen in Fredoka One */
+/* Info-Screen in Fredoka One */
 #info-screen {
   font-family: 'Fredoka One', cursive;
 }
 
-/* Game‑Screen */
+/* Game-Screen */
 #game-screen {
   position: relative;
   height: 500px;
@@ -101,7 +101,7 @@ button:hover {
   100% { transform: scale(1); }
 }
 
-/* Level‑ & XP‑Anzeige */
+/* Level- & XP-Anzeige */
 #levelDisplay {
   margin: 10px 0;
   font-size: 18px;
@@ -127,7 +127,7 @@ button:hover {
   color: #333;
 }
 
-/* Modus‑Highscores */
+/* Modus-Highscores */
 #mode-highscores ul {
   list-style: none;
   margin: 6px 0 10px;
@@ -141,7 +141,7 @@ button:hover {
   font-weight: 600;
 }
 
-/* Training‑End Screen */
+/* Training-End Screen */
 #training-end-screen {
   background: #222;
   color: #fff;
@@ -157,7 +157,7 @@ button:hover {
   cursor: pointer;
 }
 
-/* Miss‑Feedback */
+/* Miss-Feedback */
 #game.miss-flash {
   outline: 3px solid #e74c3c;
   animation: missPulse 120ms ease-out;
@@ -168,7 +168,7 @@ button:hover {
   100% { transform: scale(1); }
 }
 
-/* Icon‑Circle */
+/* Icon-Circle */
 .icon-circle {
   display: inline-block;
   width: 8px;
@@ -212,7 +212,7 @@ button:hover {
   cursor: pointer;
 }
 
-/* Sanfter Farb‑Wellen‑Hintergrund für den Start‑Screen */
+/* Sanfter Farb-Wellen-Hintergrund für den Start-Screen */
 @keyframes colorWave {
   0%   { background-color: #e74c3c; }
   20%  { background-color: #f1c40f; }
@@ -225,6 +225,42 @@ button:hover {
   position: relative;
   z-index: 1;
   animation: colorWave 20s linear infinite;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+/* Wrapper für dekorative Kreise */
+.decor-wrapper {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Header-Inhalt (Titel + Buttons) oben zentriert */
+.header {
+  z-index: 2;
+  text-align: center;
+  margin: 0;
+}
+
+/* Modus-Buttons gruppieren */
+.mode-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+@media (min-width: 600px) {
+  .mode-buttons {
+    flex-direction: row;
+  }
 }
 
 /* Dekorative Kreise hinter Text */
@@ -240,7 +276,6 @@ button:hover {
   pointer-events: none;
   /* entferne: animation: …; */
 }
-
 
 @keyframes decorPulse {
   from { transform: scale(1); }

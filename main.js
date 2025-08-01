@@ -1,4 +1,4 @@
-// main.js – Refactor + Best‑Streak‑Anzeige + Modal‑Logik + Dekor‑Bouncing
+// main.js – Refactor + Best-Streak-Anzeige + Modal-Logik + Dekor-Bouncing
 
 import { 
   initCore, 
@@ -44,25 +44,14 @@ window.addEventListener('DOMContentLoaded', () => {
   const nameInput  = document.getElementById('name-input');
   if (nameSubmit && nameInput) {
     nameSubmit.addEventListener('click', () => {
-      const raw = (nameInput.value || '').trim();
-      if (!raw) { alert('Bitte gib einen Namen ein.'); return; }
-      if (raw.length > 12) { alert('Max. 12 Zeichen.'); return; }
-      if (/\s/.test(raw)) { alert('Keine Leerzeichen.'); return; }
-      if (/\d{4,}/.test(raw)) { alert('Bitte keinen echten Namen.'); return; }
-
-      localStorage.setItem('lastPlayerName', raw);
-      document.getElementById('name-screen').style.display  = 'none';
+      const name = nameInput.value.trim() || 'Anonym';
+      document.getElementById('name-screen').style.display = 'none';
       document.getElementById('start-screen').style.display = 'block';
-      updateHighscoreUI();
-      updateBestStreakDisplay();
+      localStorage.setItem('playerName', name);
     });
   }
 
-  // Highscores initial
-  updateHighscoreUI();
-  updateBestStreakDisplay();
-
-  // Modal‑Logik für Visuelles Training (Speed‑Modi)
+  // Modal-Logik für Visuelles Training (Speed-Modi)
   const btnVisual   = document.getElementById('btn-visual');
   const visualModal = document.getElementById('visual-modal');
   const visualClose = visualModal?.querySelector('.modal-close');
@@ -74,7 +63,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Modal‑Logik für Sound‑Challenge (Hör‑Reaktion)
+  // Modal-Logik für Sound-Challenge (Hör-Reaktion)
   const btnAudio   = document.getElementById('btn-audio');
   const audioModal = document.getElementById('audio-modal');
   const audioClose = audioModal?.querySelector('.modal-close');
@@ -86,39 +75,51 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Starte die Bounce‑Animation für die Dekor‑Kreise
+  // Starte die Bounce-Animation für die Dekor-Kreise
+  document.body.classList.add('use-js-bouncing');
   startDecorBouncing();
 
   console.log('▶ main.js initialisiert (Refactor + Modals + Bouncing)');
 });
 
 
-/**
- * Bewegungs‑Routine für Dekor‑Kreise mit Kollision an Container‑Rändern
- */
 function startDecorBouncing() {
   const container = document.getElementById('start-screen');
   const size = 16;
-  const rect = container.getBoundingClientRect();
 
-  // Initialisiere alle Kreise
+  // Initialisiere alle Kreise mit Startpositionen aus CSS-Variablen
   const circles = Array.from(container.querySelectorAll('.decor-circle')).map(el => {
     const x = parseFloat(getComputedStyle(el).getPropertyValue('--left'));
     const y = parseFloat(getComputedStyle(el).getPropertyValue('--top'));
     const vx = (Math.random() * 2 + 1) * (Math.random() < 0.5 ? 1 : -1);
     const vy = (Math.random() * 2 + 1) * (Math.random() < 0.5 ? 1 : -1);
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
     return { el, x, y, vx, vy };
   });
 
-  // Animationsschleife
+  // Animationsschleife mit aktuellen Bounds
   function animate() {
+    const rect = container.getBoundingClientRect();
     circles.forEach(obj => {
       obj.x += obj.vx;
       obj.y += obj.vy;
-      // Stoß an horizontalen Kanten
-      if (obj.x <= 0 || obj.x + size >= rect.width) obj.vx *= -1;
-      // Stoß an vertikalen Kanten
-      if (obj.y <= 0 || obj.y + size >= rect.height) obj.vy *= -1;
+
+      if (obj.x <= 0) {
+        obj.x = 0;
+        obj.vx *= -1;
+      } else if (obj.x + size >= rect.width) {
+        obj.x = rect.width - size;
+        obj.vx *= -1;
+      }
+      if (obj.y <= 0) {
+        obj.y = 0;
+        obj.vy *= -1;
+      } else if (obj.y + size >= rect.height) {
+        obj.y = rect.height - size;
+        obj.vy *= -1;
+      }
+
       obj.el.style.left = obj.x + 'px';
       obj.el.style.top  = obj.y + 'px';
     });
