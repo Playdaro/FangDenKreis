@@ -1,4 +1,4 @@
-// main.js – Refactor + Best-Streak-Anzeige + Modal-Logik + Dekor-Bouncing + Startscreen-Audio + Reduced-Motion / Performance-Fallback
+// main.js – Refactor + Best-Streak-Anzeige + Modal-Logik + Dekor-Bouncing + Startscreen-Audio + Reduced-Motion / Performance-Fallback + Trainings-Intro
 
 import { 
   initCore, 
@@ -19,7 +19,7 @@ import { startTrainingTimedColor }   from './trainingTimedColor.js';
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const lowConcurrency = (() => {
   const hc = navigator.hardwareConcurrency || 4;
-  const dm = navigator.deviceMemory || 4; // in GB, may be undefined in some browsers
+  const dm = navigator.deviceMemory || 4; // in GB, fallback if undefined
   return hc <= 2 || (dm && dm <= 2);
 })();
 
@@ -30,13 +30,13 @@ let startScreenAudioFadeInterval = null;
 
 function initStartscreenAudio() {
   if (startScreenAudio) return;
-  startScreenAudio = new Audio('Frontmelodie.wav'); // muss im gleichen Ordner liegen
+  startScreenAudio = new Audio('Frontmelodie.wav'); // Datei im gleichen Verzeichnis
   startScreenAudio.loop = true;
   startScreenAudio.preload = 'auto';
   startScreenAudio.volume = 0;
   startScreenAudio.muted = false;
 
-  // Mute/Unmute-Button nur für Startscreen
+  // Mute/Unmute-Button nur auf Startscreen
   const muteBtn = document.createElement('button');
   muteBtn.id = 'start-audio-toggle';
   muteBtn.textContent = '🔈';
@@ -95,7 +95,7 @@ function enableStartscreenMusicOnce() {
   if (startScreenAudioEnabled) return;
   if (!startScreenAudio) return;
   startScreenAudio.play().catch(() => {
-    // Autoplay blockiert bis zur Interaktion; wird durch waitForInteractionToStartAudio gedeckt
+    // Autoplay kann blockiert sein bis Interaktion – wird durch waitForInteractionToStartAudio gedeckt
   });
   fadeInStartscreenAudio(0.15, 800);
   startScreenAudioEnabled = true;
@@ -109,9 +109,7 @@ function stopStartscreenMusic() {
   clearInterval(startScreenAudioFadeInterval);
 }
 
-/**
- * Wartet auf erste Benutzerinteraktion (Klick oder Tastendruck) um Audio zu starten.
- */
+// Audio-Interaktion-Trigger
 function waitForInteractionToStartAudio() {
   const handler = () => {
     enableStartscreenMusicOnce();
@@ -122,9 +120,6 @@ function waitForInteractionToStartAudio() {
   document.addEventListener('keydown', handler, { once: true });
 }
 
-/**
- * Hinweis anzeigen, dass Musik durch Tap aktiviert wird.
- */
 function showAudioPrompt() {
   const hint = document.createElement('div');
   hint.textContent = 'Klicke irgendwo, um Hintergrundmusik zu aktivieren';
@@ -147,9 +142,7 @@ function showAudioPrompt() {
   }, 5000);
 }
 
-/**
- * Zeigt den Startscreen, aktualisiert UI, und bereitet Audio-Start vor.
- */
+// Startscreen anzeigen / Musik vorbereiten
 function showStartScreen() {
   ['info-screen', 'name-screen', 'game-screen', 'game-over-screen', 'training-end-screen'].forEach(id => {
     const el = document.getElementById(id);
@@ -162,24 +155,72 @@ function showStartScreen() {
   updateHighscoreUI();
   updateBestStreakDisplay();
 
-  // Musik erst nach wirklicher Interaction starten, Hinweis geben
   showAudioPrompt();
   waitForInteractionToStartAudio();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Core initialisieren
   initCore();
+
+  // Audio vorbereiten
   initStartscreenAudio();
 
-  // Mode-Buttons: Musik stoppen, dann Modus starten
-  document.getElementById('btn-easy')      .addEventListener('click', () => { stopStartscreenMusic(); startEasyMode(); });
-  document.getElementById('btn-medium')    .addEventListener('click', () => { stopStartscreenMusic(); startMediumMode(); });
-  document.getElementById('btn-hard')      .addEventListener('click', () => { stopStartscreenMusic(); startHardMode(); });
-  document.getElementById('btn-training')  .addEventListener('click', () => { stopStartscreenMusic(); startTraining(); });
-  document.getElementById('btn-easyaudio').addEventListener('click', () => { stopStartscreenMusic(); startEasyAudioColorMode(); });
-  document.getElementById('btn-mediaudio') .addEventListener('click', () => { stopStartscreenMusic(); startMediumAudioColorMode(); });
-  document.getElementById('btn-hardaudio') .addEventListener('click', () => { stopStartscreenMusic(); startHardAudioColorMode(); });
-  document.getElementById('btn-timedtrain').addEventListener('click', () => { stopStartscreenMusic(); startTrainingTimedColor(); });
+  // Mode-Buttons: beim Start stop Music und dann starten
+  document.getElementById('btn-easy')?.addEventListener('click', () => { stopStartscreenMusic(); startEasyMode(); });
+  document.getElementById('btn-medium')?.addEventListener('click', () => { stopStartscreenMusic(); startMediumMode(); });
+  document.getElementById('btn-hard')?.addEventListener('click', () => { stopStartscreenMusic(); startHardMode(); });
+  // Trainingsmodus mit Intro-Modal (ersetzt direkte startTraining-Aufruf)
+  const trainingBtn = document.getElementById('btn-training');
+  const trainingIntroModal = document.getElementById('training-info-modal');
+  const trainingConfirmBtn = document.getElementById('start-training-confirm');
+  const skipCheckbox = document.getElementById('skip-training-intro');
+  const trainingCloseBtn = trainingIntroModal?.querySelector('.modal-close');
+
+  if (trainingBtn) {
+    trainingBtn.addEventListener('click', () => {
+      if (localStorage.getItem('seenTrainingIntro') === 'true') {
+        stopStartscreenMusic();
+        startTraining();
+        return;
+      }
+      if (trainingIntroModal) trainingIntroModal.style.display = 'flex';
+    });
+  }
+
+  // Bestätigen im Intro
+  if (trainingConfirmBtn) {
+    trainingConfirmBtn.addEventListener('click', () => {
+      if (skipCheckbox?.checked) {
+        localStorage.setItem('seenTrainingIntro', 'true');
+      }
+      if (trainingIntroModal) trainingIntroModal.style.display = 'none';
+      stopStartscreenMusic();
+      startTraining();
+    });
+  }
+
+  // Intro schließen (X)
+  if (trainingCloseBtn) {
+    trainingCloseBtn.addEventListener('click', () => {
+      if (trainingIntroModal) trainingIntroModal.style.display = 'none';
+    });
+  }
+
+  // Klick außerhalb schließt Intro
+  if (trainingIntroModal) {
+    trainingIntroModal.addEventListener('click', e => {
+      if (e.target === trainingIntroModal) {
+        trainingIntroModal.style.display = 'none';
+      }
+    });
+  }
+
+  // Audio-Training / andere Modi
+  document.getElementById('btn-easyaudio')?.addEventListener('click', () => { stopStartscreenMusic(); startEasyAudioColorMode(); });
+  document.getElementById('btn-mediaudio')?.addEventListener('click', () => { stopStartscreenMusic(); startMediumAudioColorMode(); });
+  document.getElementById('btn-hardaudio')?.addEventListener('click', () => { stopStartscreenMusic(); startHardAudioColorMode(); });
+  document.getElementById('btn-timedtrain')?.addEventListener('click', () => { stopStartscreenMusic(); startTrainingTimedColor(); });
 
   // Info → Name Screen
   const infoContinue = document.getElementById('info-continue');
@@ -203,7 +244,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (/\d{4,}/.test(raw)) { alert('Bitte keinen echten Namen.'); return; }
 
       localStorage.setItem('lastPlayerName', raw);
-      showStartScreen(); // echte Interaktion -> Musik startet
+      showStartScreen();
     });
   }
 
@@ -220,7 +261,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Zurück zum Startscreen
+  // Rückkehr zum Startscreen
   const backBtn = document.getElementById('back-button');
   if (backBtn) {
     backBtn.addEventListener('click', () => {
@@ -234,10 +275,11 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Highscore & Streak
   updateHighscoreUI();
   updateBestStreakDisplay();
 
-  // Modal-Logik Visuell
+  // Visuelle Modal-Logik
   const btnVisual   = document.getElementById('btn-visual');
   const visualModal = document.getElementById('visual-modal');
   const visualClose = visualModal?.querySelector('.modal-close');
@@ -249,7 +291,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Modal-Logik Audio
+  // Audio-Modal-Logik
   const btnAudio   = document.getElementById('btn-audio');
   const audioModal = document.getElementById('audio-modal');
   const audioClose = audioModal?.querySelector('.modal-close');
@@ -261,25 +303,23 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Bounce-Animation (wenn nicht reduced-motion)
+  // Bounce-Animation (nur wenn nicht reduced-motion)
   document.body.classList.add('use-js-bouncing');
   startDecorBouncing();
 
-  console.log('▶ main.js initialisiert (Refactor + Modals + Bouncing + Audio)');
+  console.log('▶ main.js initialisiert (Refactor + Modals + Bouncing + Audio + Trainings-Intro)');
 });
 
 
 /**
  * Bewegungs-Routine für Dekor-Kreise mit Kollision am Rand.
- * Berücksichtigt reduced-motion und niedrige Hardware für Throttling.
+ * Respektiert reduced-motion und drosselt auf schwächerer Hardware.
  */
 function startDecorBouncing() {
   const container = document.getElementById('start-screen');
   const size = 16;
 
-  // Wenn reduced motion aktiv: keine Bewegung
   if (prefersReducedMotion) {
-    // Setze initiale Positionen aus CSS-Variablen, keine Animation
     Array.from(container.querySelectorAll('.decor-circle')).forEach(el => {
       const x = parseFloat(getComputedStyle(el).getPropertyValue('--left')) || 0;
       const y = parseFloat(getComputedStyle(el).getPropertyValue('--top')) || 0;
@@ -295,7 +335,7 @@ function startDecorBouncing() {
 
   let bounds = getBounds();
   let frameCount = 0;
-  const frameSkip = lowConcurrency ? 2 : 1; // auf schwacher Hardware nur jede zweite Frame aktualisieren
+  const frameSkip = lowConcurrency ? 2 : 1;
 
   const circles = Array.from(container.querySelectorAll('.decor-circle')).map(el => {
     const initialX = parseFloat(getComputedStyle(el).getPropertyValue('--left')) || Math.random() * (bounds.width - size);
