@@ -20,6 +20,10 @@ import { startGridEasy,   stopGridEasy }   from './gridEasy.js';
 import { startGridMedium, stopGridMedium } from './gridMedium.js';
 import { startGridHard,   stopGridHard }   from './gridHard.js';
 
+// === Merker für "Weiter spielen" ===
+let lastModeType = null;        // 'grid' | null (kannst du später für andere Modi erweitern)
+let lastGridDifficulty = null;  // 'easy' | 'medium' | 'hard'
+
 // === Feature flags / environment checks ===
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const lowConcurrency = (() => {
@@ -284,6 +288,25 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // NEU: „Weiter spielen“ → zuletzt gespielten Grid-Modus erneut starten
+  const restartBtn = document.getElementById('restart-button');
+  if (restartBtn) {
+    restartBtn.addEventListener('click', () => {
+      // Game-Over ausblenden
+      document.getElementById('game-over-screen').style.display = 'none';
+
+      if (lastModeType === 'grid') {
+        if (lastGridDifficulty === 'easy')      { startGridEasyFlow(); }
+        else if (lastGridDifficulty === 'medium'){ startGridMediumFlow(); }
+        else if (lastGridDifficulty === 'hard')  { startGridHardFlow(); }
+        else { showStartScreen(); }
+      } else {
+        // Falls „Weiter spielen“ aus einem anderen Modus kam:
+        showStartScreen();
+      }
+    });
+  }
+
   // Highscore & Streak
   updateHighscoreUI();
   updateBestStreakDisplay();
@@ -333,7 +356,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.body.classList.add('use-js-bouncing');
   startDecorBouncing();
 
-  console.log('▶ main.js initialisiert (Refactor + Modals + Bouncing + Audio + Trainings-Intro + Grid-Split)');
+  console.log('▶ main.js initialisiert (Refactor + Modals + Bouncing + Audio + Trainings-Intro + Grid-Split + Restart)');
 });
 
 // Helper: gemeinsame Vorbereitung für alle Grid-Varianten
@@ -356,10 +379,10 @@ function prepareGridScreen() {
   stopStartscreenMusic();
 }
 
-// Startfunktionen je Schwierigkeitsgrad
-function startGridEasyFlow()   { prepareGridScreen(); startGridEasy(); }
-function startGridMediumFlow() { prepareGridScreen(); startGridMedium(); }
-function startGridHardFlow()   { prepareGridScreen(); startGridHard(); }
+// Startfunktionen je Schwierigkeitsgrad (merken den Modus für „Weiter spielen“)
+function startGridEasyFlow()   { lastModeType = 'grid'; lastGridDifficulty = 'easy';   prepareGridScreen(); startGridEasy(); }
+function startGridMediumFlow() { lastModeType = 'grid'; lastGridDifficulty = 'medium'; prepareGridScreen(); startGridMedium(); }
+function startGridHardFlow()   { lastModeType = 'grid'; lastGridDifficulty = 'hard';   prepareGridScreen(); startGridHard(); }
 
 // Ende-Flow vom Grid-Modus (30s vorbei)
 window.addEventListener('gridmode:finished', (ev) => {
@@ -384,7 +407,6 @@ window.addEventListener('gridmode:finished', (ev) => {
   const acc = attempts > 0 ? Math.round((score / attempts) * 100) : 0;
   if (finalAcc) finalAcc.textContent = acc + '%';
 });
-
 
 /**
  * Bewegungs-Routine für Dekor-Kreise mit Kollision am Rand.
