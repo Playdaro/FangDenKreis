@@ -53,6 +53,10 @@
         <div>
           <button id="btn-audio">Sound Challenge (Hör-Reaktion)</button>
         </div>
+        <!-- NEU: Dritter Modus-Button -->
+        <div>
+          <button id="btn-grid">Richtungs-Training (3×3 Grid)</button>
+        </div>
       </div>
     </div>
 
@@ -89,6 +93,20 @@
           <button id="btn-mediaudio">Mittel 🎧</button>
           <button id="btn-hardaudio">Schwer 🎶</button>
           <button id="btn-timedtrain">Audio-Training ⏱️</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEU: Grid Modal -->
+    <div id="grid-modal" class="modal-overlay" style="display:none;">
+      <div class="modal-content">
+        <button class="modal-close">&times;</button>
+        <h2>Richtungs-Training (3×3 Grid)</h2>
+        <p>Tippe immer das farblich markierte Feld. Du hast 30 Sekunden.</p>
+        <div class="button-row">
+          <button id="btn-grid-easy">Leicht (nur linke/rechte Spalte – inkl. Ecken)</button>
+          <button id="btn-grid-medium">Mittel (Oben/Links/Rechts/Unten)</button>
+          <button id="btn-grid-hard">Schwer (Alle 9 Felder)</button>
         </div>
       </div>
     </div>
@@ -166,6 +184,9 @@
       <div id="circle2" style="display: none;"></div>
       <div id="circle3" style="display: none;"></div>
       <div id="circle4" style="display: none;"></div>
+
+      <!-- NEU: Grid-Container -->
+      <div id="grid-game" style="display:none"></div>
     </div>
 
     <button id="back-button">Zurück zum Start</button>

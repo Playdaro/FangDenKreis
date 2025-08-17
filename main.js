@@ -15,6 +15,11 @@ import { startMediumAudioColorMode } from './mediumAudioColor.js';
 import { startHardAudioColorMode }   from './hardAudioColor.js';
 import { startTrainingTimedColor }   from './trainingTimedColor.js';
 
+// NEU – getrennte Grid-Module (statt altem gridMode.js)
+import { startGridEasy,   stopGridEasy }   from './gridEasy.js';
+import { startGridMedium, stopGridMedium } from './gridMedium.js';
+import { startGridHard,   stopGridHard }   from './gridHard.js';
+
 // === Feature flags / environment checks ===
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const lowConcurrency = (() => {
@@ -265,6 +270,10 @@ window.addEventListener('DOMContentLoaded', () => {
   const backBtn = document.getElementById('back-button');
   if (backBtn) {
     backBtn.addEventListener('click', () => {
+      // Alle Grid-Varianten sicher stoppen (harmlos, wenn nicht aktiv)
+      stopGridEasy();
+      stopGridMedium();
+      stopGridHard();
       showStartScreen();
     });
   }
@@ -303,11 +312,77 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Grid-Modal-Logik
+  const btnGrid   = document.getElementById('btn-grid');
+  const gridModal = document.getElementById('grid-modal');
+  const gridClose = gridModal?.querySelector('.modal-close');
+  if (btnGrid && gridModal && gridClose) {
+    btnGrid.addEventListener('click', () => { gridModal.style.display = 'flex'; });
+    gridClose.addEventListener('click', () => { gridModal.style.display = 'none'; });
+    gridModal.addEventListener('click', e => {
+      if (e.target === gridModal) gridModal.style.display = 'none';
+    });
+  }
+
+  // Grid-Schwierigkeits-Buttons → getrennte Flows
+  document.getElementById('btn-grid-easy')  ?.addEventListener('click', () => startGridEasyFlow());
+  document.getElementById('btn-grid-medium')?.addEventListener('click', () => startGridMediumFlow());
+  document.getElementById('btn-grid-hard')  ?.addEventListener('click', () => startGridHardFlow());
+
   // Bounce-Animation (nur wenn nicht reduced-motion)
   document.body.classList.add('use-js-bouncing');
   startDecorBouncing();
 
-  console.log('▶ main.js initialisiert (Refactor + Modals + Bouncing + Audio + Trainings-Intro)');
+  console.log('▶ main.js initialisiert (Refactor + Modals + Bouncing + Audio + Trainings-Intro + Grid-Split)');
+});
+
+// Helper: gemeinsame Vorbereitung für alle Grid-Varianten
+function prepareGridScreen() {
+  const gridModal = document.getElementById('grid-modal');
+  if (gridModal) gridModal.style.display = 'none';
+
+  // Screens umschalten
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('game-over-screen').style.display = 'none';
+  document.getElementById('training-end-screen').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'block';
+
+  // HUD reset
+  const scoreEl = document.getElementById('score'); if (scoreEl) scoreEl.textContent = '0';
+  const timerEl = document.getElementById('timer'); if (timerEl) timerEl.textContent = '30';
+  const streakEl = document.getElementById('streak'); if (streakEl) streakEl.textContent = '0';
+
+  // Startscreen-Musik stoppen
+  stopStartscreenMusic();
+}
+
+// Startfunktionen je Schwierigkeitsgrad
+function startGridEasyFlow()   { prepareGridScreen(); startGridEasy(); }
+function startGridMediumFlow() { prepareGridScreen(); startGridMedium(); }
+function startGridHardFlow()   { prepareGridScreen(); startGridHard(); }
+
+// Ende-Flow vom Grid-Modus (30s vorbei)
+window.addEventListener('gridmode:finished', (ev) => {
+  const { score, misses, bestStreak } = ev.detail || {};
+
+  // Game-Screen aus, Game-Over an
+  document.getElementById('game-screen').style.display = 'none';
+  document.getElementById('game-over-screen').style.display = 'block';
+
+  // Felder füllen
+  const finalScore = document.getElementById('final-score');
+  const finalMiss  = document.getElementById('final-misses');
+  const finalBS    = document.getElementById('final-persisted-best-streak');
+  const finalAcc   = document.getElementById('final-accuracy');
+
+  if (finalScore) finalScore.textContent = String(score ?? 0);
+  if (finalMiss)  finalMiss.textContent  = String(misses ?? 0);
+  if (finalBS)    finalBS.textContent    = String(bestStreak ?? 0);
+
+  // Accuracy: Treffer = score, Versuche = score + misses
+  const attempts = (score ?? 0) + (misses ?? 0);
+  const acc = attempts > 0 ? Math.round((score / attempts) * 100) : 0;
+  if (finalAcc) finalAcc.textContent = acc + '%';
 });
 
 

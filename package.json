@@ -1,0 +1,26 @@
+{
+  "name": "fangdenkreis",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "start": "node chatgpt.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Playdaro/FangDenKreis.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Playdaro/FangDenKreis/issues"
+  },
+  "homepage": "https://github.com/Playdaro/FangDenKreis#readme",
+  "description": "",
+  "dependencies": {
+    "dotenv": "^17.2.1",
+    "openai": "^5.12.2"
+  }
+}

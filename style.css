@@ -10,9 +10,7 @@ html, body {
   overflow-x: hidden;
 }
 
-body {
-  position: relative;
-}
+body { position: relative; }
 
 /* Safe area support (iOS notch etc.) */
 #start-screen {
@@ -42,24 +40,10 @@ button {
   align-items: center;
   justify-content: center;
 }
-
-button:active {
-  transform: scale(0.97);
-}
-
-button:focus-visible {
-  outline: 3px solid #ffe066;
-  outline-offset: 2px;
-}
-
-button:hover {
-  filter: brightness(1.05);
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+button:active { transform: scale(0.97); }
+button:focus-visible { outline: 3px solid #ffe066; outline-offset: 2px; }
+button:hover { filter: brightness(1.05); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Bildschirme */
 #start-screen,
@@ -74,9 +58,7 @@ button:disabled {
 }
 
 /* Info-Screen in Fredoka One */
-#info-screen {
-  font-family: 'Fredoka One', cursive;
-}
+#info-screen { font-family: 'Fredoka One', cursive; }
 
 /* Game-Screen */
 #game-screen {
@@ -93,7 +75,7 @@ button:disabled {
   margin: 20px auto;
   background-color: white;
   border: 2px solid #ccc;
-  overflow: hidden;
+  overflow: hidden;           /* wichtig: nix überlaufen lassen */
   border-radius: 10px;
 }
 
@@ -135,9 +117,7 @@ button:disabled {
   box-shadow: 0 2px 6px rgba(0,0,0,.25);
   opacity: .9;
 }
-#streak-box.streak-pop {
-  animation: streakPop .3s ease;
-}
+#streak-box.streak-pop { animation: streakPop .3s ease; }
 @keyframes streakPop {
   0%   { transform: scale(1); }
   35%  { transform: scale(1.25); }
@@ -145,11 +125,7 @@ button:disabled {
 }
 
 /* Level- & XP-Anzeige */
-#levelDisplay {
-  margin: 10px 0;
-  font-size: 18px;
-  color: #333;
-}
+#levelDisplay { margin: 10px 0; font-size: 18px; color: #333; }
 #xpBar {
   width: 80%;
   height: 10px;
@@ -164,11 +140,7 @@ button:disabled {
   background-color: #4caf50;
   transition: width 0.3s ease;
 }
-#xpAmount {
-  margin: 5px 0;
-  font-size: 16px;
-  color: #333;
-}
+#xpAmount { margin: 5px 0; font-size: 16px; color: #333; }
 
 /* Training-End Screen */
 #training-end-screen {
@@ -211,12 +183,10 @@ button:disabled {
 /* Modals */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
   background: rgba(0,0,0,0.5);
-  display: flex;
+  display: none;                 /* Default: versteckt */
   align-items: center;
   justify-content: center;
   z-index: 1000;
@@ -224,6 +194,7 @@ button:disabled {
 .modal-content {
   background: #fff;
   padding: 1.5rem;
+  padding-right: 3.25rem;        /* Platz für den Close-Button */
   border-radius: 0.5rem;
   max-width: 90%;
   width: 300px;
@@ -231,14 +202,34 @@ button:disabled {
   box-shadow: 0 2px 10px rgba(0,0,0,0.3);
   position: relative;
 }
+
+/* Deutlich sichtbarer Close-Button (X) */
 .modal-close {
   position: absolute;
-  top: 0.5rem;
-  right: 0.75rem;
-  background: transparent;
-  border: none;
-  font-size: 1.5rem;
+  top: 0.5rem; right: 0.75rem;
+
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  border: 2px solid #fff;
+  background: #e74c3c;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+
   cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0,0,0,.25);
+  transition: transform .08s ease, filter .15s ease, box-shadow .15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.modal-close:hover { filter: brightness(1.05); }
+.modal-close:active { transform: scale(0.96); }
+.modal-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px #fff, 0 0 0 6px #e74c3c;
 }
 
 /* Sanfter Farb-Wellen-Hintergrund für den Start-Screen */
@@ -273,11 +264,7 @@ button:disabled {
 }
 
 /* Header-Inhalt (Titel + Buttons) oben zentriert */
-.header {
-  z-index: 2;
-  text-align: center;
-  margin: 0;
-}
+.header { z-index: 2; text-align: center; margin: 0; }
 
 /* Modus-Buttons gruppieren */
 .mode-buttons {
@@ -289,9 +276,7 @@ button:disabled {
   max-width: 500px;
 }
 @media (min-width: 600px) {
-  .mode-buttons {
-    flex-direction: row;
-  }
+  .mode-buttons { flex-direction: row; }
 }
 
 /* Dekorative Kreise hinter Text, responsive Größe */
@@ -308,17 +293,50 @@ button:disabled {
   will-change: left, top;
 }
 
-/* Reduced motion: Bounce deaktivieren bzw. minimal */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  #start-screen {
-    animation: none;
-  }
+  #start-screen { animation: none; }
   .decor-circle {
     transition: opacity .6s ease-in-out;
     animation: decorPulse 3s infinite alternate;
   }
   @keyframes decorPulse {
     from { opacity: 0.25; }
-    to { opacity: 0.4; }
+    to   { opacity: 0.4; }
   }
 }
+
+/* ===== 3×3 Grid-Modus =====
+   Wichtig: Größe so wählen, dass das Quadrat NIE höher als #game (400px) wird */
+#grid-game {
+  width: min(100%, 90vmin, 400px);   /* passt immer in den 400px hohen Container */
+  aspect-ratio: 1 / 1;
+  max-height: 100%;
+  margin: 12px auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  touch-action: manipulation;
+}
+
+.grid-cell {
+  border-radius: 14px;
+  background: #222;
+  border: 2px solid #444;
+  transition: transform 80ms ease, background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  user-select: none;
+}
+
+.grid-cell.active {
+  background: #2a7;
+  border-color: #4fc08d;
+  box-shadow: 0 0 10px rgba(79,192,141,0.6);
+}
+
+/* Einmalig zusammengeführt: Hit-Feedback */
+.grid-cell.hit {
+  transform: scale(0.97);
+  background: #2a7;                 /* kurzer grüner Flash */
+  box-shadow: 0 0 10px rgba(79,192,141,0.6);
+}
+.grid-cell.miss { background:#a22; border-color:#e55; }
