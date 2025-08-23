@@ -8,6 +8,50 @@
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
+
+<!-- Stats-Modal -->
+<div id="stats-modal" class="modal" style="display:none;">
+  <div class="modal-panel">
+    <button class="modal-close" aria-label="Schließen">×</button>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="now">Jetzt</button>
+      <button class="tab-btn" data-tab="history">Historie</button>
+    </div>
+
+    <div class="tab-content" id="stats-tab-now">
+      <div class="stat-row"><span>Letzter Modus</span><strong id="s-last-mode">–</strong></div>
+      <div class="stat-row"><span>Punkte</span><strong id="s-score">0</strong></div>
+      <div class="stat-row"><span>Trefferquote</span><strong id="s-acc">0%</strong></div>
+      <div class="stat-row"><span>Ø Reaktionszeit</span><strong id="s-avg">0 s</strong></div>
+      <div class="stat-row"><span>Median RT</span><strong id="s-med">0 s</strong></div>
+      <div class="stat-row"><span>Best-Streak</span><strong id="s-beststreak">0</strong></div>
+      <div class="stat-row"><span>Hits/Minute</span><strong id="s-hpm">0</strong></div>
+      <div class="stat-row"><span>Spielzeit (Run)</span><strong id="s-duration">0 s</strong></div>
+      <div class="stat-row"><span>Spielzeit heute</span><strong id="s-today">0 s</strong></div>
+      <div class="stat-row"><span>7 Tage gesamt</span><strong id="s-7d">0 s</strong></div>
+    </div>
+
+    <div class="tab-content" id="stats-tab-history" style="display:none;">
+      <div class="best-grid">
+        <div><small>Highscore (global)</small><strong id="b-bestscore">0</strong></div>
+        <div><small>Längste Session</small><strong id="b-longest">0 s</strong></div>
+        <div><small>Bester Ø-RT</small><strong id="b-avg">–</strong></div>
+        <div><small>Beste Quote</small><strong id="b-acc">–</strong></div>
+        <div><small>Beste HPM</small><strong id="b-hpm">–</strong></div>
+        <div><small>Tages-Streak</small><strong id="b-streak">0</strong></div>
+      </div>
+
+      <h4>Letzte 5 Runden</h4>
+      <table class="stats-table" id="runs-table">
+        <thead><tr><th>Datum</th><th>Modus</th><th>Score</th><th>ØRT</th><th>Quote</th><th>Dauer</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
 <body>
 
   <!-- Info / Einleitung -->
@@ -205,17 +249,6 @@
     <button id="gameover-back-button">Zurück zum Start</button>
   </div>
 
-  <!-- Training Ende Screen -->
-  <div id="training-end-screen" style="display:none; text-align:center;">
-    <h2>Training beendet</h2>
-    <p><strong>Erreichtes Level:</strong> <span id="training-final-level">0</span></p>
-    <p><strong>Treffer:</strong> <span id="training-final-hits">0</span></p>
-    <p><strong>Misses:</strong> <span id="training-final-misses">0</span></p>
-    <p><strong>Ø Reaktionszeit:</strong> <span id="training-final-reaction">0.00</span> s</p>
-    <div style="margin-top:14px;">
-      <button id="training-continue">Weiter spielen</button>
-      <button id="training-back">Zurück zum Start</button>
-    </div>
   </div>
 
   <!-- Hauptskript (importiert alle Module) -->

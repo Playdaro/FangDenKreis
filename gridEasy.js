@@ -3,6 +3,11 @@
 // - Ziel bleibt nur begrenzte Zeit sichtbar (roundMs), dann Miss + Wechsel
 // - Nach Hit sofort neues Ziel, NIE die gleiche Zelle wie vorher
 // - Kurzes visuelles Hit-Feedback (.hit)
+// - Reset-sicher: nutzt resetGameState, addManagedListener, registerInterval
+// - Reaktionszeit: misst Spawn→Treffer und füllt reactionTimes (für Game-Over-Ø)
+
+import { reactionTimes, lastMoveTime, setLastMoveTime } from './core.js';
+import { resetGameState, addManagedListener, registerInterval } from './reset.js';
 
 const START_MS    = 1800;   // Startdauer je Ziel
 const MIN_MS      = 1000;   // nie schneller als 1.0s
@@ -27,11 +32,15 @@ let state = {
 const ALLOW = [0, 2, 3, 5, 6, 8];
 
 export function startGridEasy() {
-  const container = document.getElementById('grid-game');
+  const container  = document.getElementById('grid-game');
   const gameScreen = document.getElementById('game-screen');
   if (!container || !gameScreen) return;
 
-  stopGridEasy(); // Reset
+  // Global sauber machen (killt alte Timer/Listener, versteckt Kreise/Grid)
+  resetGameState();
+
+  // Reaktionszeiten für diese Session leeren (wichtig für Ø)
+  reactionTimes.length = 0;
 
   // UI vorbereiten
   hideCircles();
@@ -39,16 +48,16 @@ export function startGridEasy() {
   gameScreen.style.display = 'block';
 
   // State initialisieren
-  state.running = true;
-  state.roundMs = START_MS;
-  state.minRoundMs = MIN_MS;
-  state.score = 0;
-  state.misses = 0;
-  state.streak = 0;
-  state.bestStreak = 0;
-  state.remaining = 30;
+  state.running      = true;
+  state.roundMs      = START_MS;
+  state.minRoundMs   = MIN_MS;
+  state.score        = 0;
+  state.misses       = 0;
+  state.streak       = 0;
+  state.bestStreak   = 0;
+  state.remaining    = 30;
   state.allowIndices = ALLOW.slice();
-  state.targetIndex = null;
+  state.targetIndex  = null;
 
   // Grid bauen
   container.innerHTML = '';
@@ -56,10 +65,12 @@ export function startGridEasy() {
     const div = document.createElement('div');
     div.className = 'grid-cell';
     div.dataset.index = String(i);
-    div.addEventListener('pointerdown', onCellClick, { passive: true });
+    // managed Listener → wird beim nächsten Reset automatisch entfernt
+    addManagedListener(div, 'pointerdown', onCellClick);
     container.appendChild(div);
   }
-  window.addEventListener('keydown', onKey);
+  // Keyboard (managed)
+  addManagedListener(window, 'keydown', onKey);
 
   setText('#score', '0');
   setText('#streak', '0');
@@ -69,12 +80,13 @@ export function startGridEasy() {
   nextRound(null);     // excludeSameAs = null
   startSwitchTimer();
 
-  // 30s Spielzeit
+  // 30s Spielzeit (registrieren für Reset)
   state.countdownTimer = setInterval(() => {
     state.remaining -= 1;
     setText('#timer', String(state.remaining));
     if (state.remaining <= 0) finish('timeup');
   }, 1000);
+  registerInterval(state.countdownTimer);
 }
 
 export function stopGridEasy() {
@@ -83,6 +95,7 @@ export function stopGridEasy() {
   state.switchTimer = null;
   state.countdownTimer = null;
 
+  // explizit Key-Listener entfernen (managed räumt ohnehin auf; doppelt schadet nicht)
   window.removeEventListener('keydown', onKey);
 
   const container = document.getElementById('grid-game');
@@ -131,6 +144,12 @@ function handleSelection(idx) {
   const wasTarget = (idx === state.targetIndex);
 
   if (wasTarget) {
+    // === Reaktionszeit registrieren ===
+    if (lastMoveTime) {
+      const rtSec = (Date.now() - lastMoveTime) / 1000;
+      if (rtSec >= 0 && rtSec < 10) reactionTimes.push(rtSec);
+    }
+
     // Hit-Feedback kurz sichtbar
     cell.classList.add('hit');
     setTimeout(() => cell.classList.remove('hit'), 140);
@@ -190,7 +209,13 @@ function nextRound(excludeIndex) {
   state.targetIndex = pool[rnd];
 
   // aktiv markieren
-  cells[state.targetIndex]?.classList.add('active');
+  const targetCell = cells[state.targetIndex];
+  if (targetCell) {
+    targetCell.classList.add('active');
+  }
+
+  // === Spawn-Zeit für Reaktionsmessung setzen ===
+  setLastMoveTime(Date.now());
 }
 
 function startSwitchTimer() {
@@ -200,6 +225,7 @@ function startSwitchTimer() {
     const prev = state.targetIndex;
     nextRound(prev); // nie gleiche Zelle wie vorher
   }, state.roundMs);
+  registerInterval(state.switchTimer);
 }
 
 function restartSwitchTimer() {
@@ -215,6 +241,8 @@ function setText(sel, txt) {
 function finish(reason) {
   if (!state.running) return;
   stopGridEasy();
+
+  // -> Nur DISPATCHEN; der Handler lebt in main.js
   window.dispatchEvent(new CustomEvent('gridmode:finished', {
     detail: {
       reason,
@@ -223,6 +251,7 @@ function finish(reason) {
       bestStreak: state.bestStreak,
       duration: 30,
       difficulty: 'easy'
+      // Reaktionszeiten liegen global in core.reactionTimes – Game-Over nutzt sie für Ø.
     }
   }));
 }

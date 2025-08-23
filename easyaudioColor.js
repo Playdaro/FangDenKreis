@@ -1,4 +1,5 @@
 // easyaudioColor.js – Easy Audio-Color mit Timer, Reaktionszeiten, Fehlklicks & Button-Handlern
+// Refactored: reset-sicher, managed Listener, Timer-Registrierung
 
 import {
   // DOM & State
@@ -23,8 +24,17 @@ import {
   triggerMissFlash,
   setEndGame,
   baseEndGame,
-  startCountdown
+  startCountdown,
+  // ⚠️ für Timer-Registrierung
+  countdownInterval
 } from './core.js';
+
+// Reset/Registry
+import {
+  resetGameState,
+  addManagedListener,
+  registerInterval
+} from './reset.js';
 
 // 5 Basisfarben
 const COLORS = [
@@ -37,7 +47,7 @@ const COLORS = [
 
 let correctColor;
 
-// TTS‑Wrapper
+// TTS-Wrapper
 function speak(text) {
   if ('speechSynthesis' in window) {
     const msg = new SpeechSynthesisUtterance(text);
@@ -52,13 +62,13 @@ function spawnCircles() {
   circle.dataset.color  = a.name;
   circle2.dataset.color = b.name;
 
-  circle.style.background   = a.code;
-  circle2.style.background  = b.code;
-  circle.style.display      = 'block';
-  circle2.style.display     = 'block';
+  circle.style.background  = a.code;
+  circle2.style.background = b.code;
+  circle.style.display     = 'block';
+  circle2.style.display    = 'block';
 
-  moveCircle();                
-  moveCircleSafely(circle2);
+  moveCircle();                 // erster Kreis frei platzieren
+  moveCircleSafely(circle2);    // zweiter Kreis sicher platzieren
 
   setLastMoveTime(Date.now());
 
@@ -74,7 +84,7 @@ function handleCircleClick(e) {
   if (chosen === correctColor) {
     reactionTimes.push((Date.now() - lastMoveTime) / 1000);
     incrementScore();
-    scoreDisplay.textContent = +scoreDisplay.textContent + 1;
+    scoreDisplay.textContent = String(+scoreDisplay.textContent + 1);
     spawnCircles();
   } else {
     incrementMisses();
@@ -89,71 +99,65 @@ function handleMissClick(e) {
   triggerMissFlash();
 }
 
-// Entfernt Listener und versteckt Kreise
-function cleanupAudioColor() {
-  circle.removeEventListener('click', handleCircleClick);
-  circle2.removeEventListener('click', handleCircleClick);
-  gameArea.removeEventListener('click', handleMissClick);
-  circle.style.display  = 'none';
-  circle2.style.display = 'none';
-}
-
-// EndGame‑Wrapper
+// EndGame-Wrapper
 function endGameAudioColor() {
-  cleanupAudioColor();
+  // Timer/Listener/UI wurden beim Moduswechsel über resetGameState bereinigt.
+  // Hier nur die standardisierte Endauswertung aufrufen.
   baseEndGame();
 }
 
 // Start Easy Audio-Color Modus
 export function startEasyAudioColorMode() {
-  // Reset
+  // 0) Sauberer Start (killt alte Timer/Listener, versteckt Kreise/Grid, setzt HUD zurück)
+  resetGameState();
+
+  // 1) Score/Miss/RT local für diese Runde zurücksetzen
   resetScore();
   resetMisses();
   reactionTimes.length = 0;
   scoreDisplay.textContent = '0';
 
-  // Timer & EndGame
+  // 2) EndGame-Hook setzen und Countdown starten (+ registrieren)
   setEndGame(endGameAudioColor);
   startCountdown(30);
+  registerInterval(countdownInterval);
 
-  // Screen umschalten
-  startScreen.style.display = 'none';
+  // 3) Screens umschalten
+  startScreen.style.display   = 'none';
   gameOverScreen.style.display = 'none';
-  gameScreen.style.display  = 'block';
+  gameScreen.style.display    = 'block';
 
-  // Listener für Kreise + Spielbereich
-  circle .addEventListener('click', handleCircleClick);
-  circle2.addEventListener('click', handleCircleClick);
-  gameArea.addEventListener('click', handleMissClick);
+  // 4) Listener managed registrieren
+  if (circle)  addManagedListener(circle,  'click', handleCircleClick);
+  if (circle2) addManagedListener(circle2, 'click', handleCircleClick);
+  if (gameArea) addManagedListener(gameArea, 'click', handleMissClick);
 
-  // Back‑Button im Spiel
-  const backButton = document.getElementById('back-button');
+  // Back/Restart/GameOver Buttons – ebenfalls managed + mit Reset
+  const backButton     = document.getElementById('back-button');
+  const restartBtn     = document.getElementById('restart-button');
+  const goBackGameOver = document.getElementById('gameover-back-button');
+
   if (backButton) {
-    backButton.onclick = () => {
-      cleanupAudioColor();
+    addManagedListener(backButton, 'click', () => {
+      resetGameState();
       gameScreen.style.display  = 'none';
       startScreen.style.display = 'block';
-    };
+    });
   }
-
-  // Restart- & GameOver-Buttons
-  const restartBtn = document.getElementById('restart-button');
-  const goBackBtn = document.getElementById('gameover-back-button');
-
   if (restartBtn) {
-    restartBtn.onclick = () => {
-      cleanupAudioColor();
+    addManagedListener(restartBtn, 'click', () => {
+      resetGameState();
       startEasyAudioColorMode();
-    };
+    });
   }
-  if (goBackBtn) {
-    goBackBtn.onclick = () => {
-      cleanupAudioColor();
+  if (goBackGameOver) {
+    addManagedListener(goBackGameOver, 'click', () => {
+      resetGameState();
       gameOverScreen.style.display = 'none';
       startScreen.style.display    = 'block';
-    };
+    });
   }
 
-  // Erste Runde
+  // 5) Erste Runde
   spawnCircles();
 }

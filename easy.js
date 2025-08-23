@@ -34,12 +34,17 @@ import {
   circle,
   gameArea,
   playerName,
-  baseEndGame // falls nicht exportiert -> in core.js `export { baseEndGame };`
+  baseEndGame, // falls nicht exportiert -> in core.js `export { baseEndGame };`
 } from './core.js';
 
+// ⚠️ NEU: Reset/Registry-Funktionen kommen aus reset.js, NICHT aus core.js
 import {
-  loadPersistedBestStreak
-} from './core.js';
+  resetGameState,
+  addManagedListener,
+  registerInterval
+} from './reset.js';
+
+import { loadPersistedBestStreak } from './core.js';
 
 // ---- EndGame Wrapper (nur für Persistenz persönlicher Best-Streak) ----
 function endGameWithPersist() {
@@ -78,74 +83,79 @@ function handleMiss(e) {
   triggerMissFlash();
 }
 
-// ---- Cleanup ----
-function cleanup() {
-  circle.removeEventListener('click', handleHit);
-  gameArea.removeEventListener('click', handleMiss);
-  clearInterval(interval);
-  clearInterval(countdownInterval);
-  clearCircleIntervals();
-}
-
 // ---- Start ----
 export function startEasyMode() {
+  // 0) Immer zuerst alles sauber aufräumen
+  resetGameState();
+
+  // 1) Modus setzen / EndGame-Wrapper registrieren / Run initialisieren
   setDifficulty('easy');
-  // Unser EndGame-Wrapper aktivieren
   setEndGame(endGameWithPersist);
   initModeRun('easy');
 
-  cleanup();
-
+  // 2) State für neue Runde zurücksetzen
   resetScore();
   resetMisses();
   clearReactionTimes();
   startNewRunStreakReset();
   scoreDisplay.textContent = '0';
 
-  // Screens
+  // 3) Screens schalten
   startScreen.style.display    = 'none';
   gameOverScreen.style.display = 'none';
   gameScreen.style.display     = 'block';
 
-  // Buttons frisch holen (erst jetzt sicher vorhanden)
+  // 4) Buttons/DOM-Refs
   const restartButton  = document.getElementById('restart-button');
   const backButton     = document.getElementById('back-button');
   const goBackGameOver = document.getElementById('gameover-back-button');
 
-  // Listener
-  circle.addEventListener('click', handleHit);
-  gameArea.addEventListener('click', handleMiss);
+  // 5) Listener sauber verwalten (managed!)
+  if (circle) {
+    circle.style.display = 'block';
+    addManagedListener(circle, 'click', handleHit);
+  }
+  if (gameArea) {
+    addManagedListener(gameArea, 'click', handleMiss);
+  }
 
   if (backButton) {
-    backButton.onclick = () => {
-      cleanup();
+    addManagedListener(backButton, 'click', () => {
+      // Aufräumen + zurück zum Start
+      resetGameState();
       gameScreen.style.display  = 'none';
       startScreen.style.display = 'block';
-    };
+    });
   }
   if (restartButton) {
-    restartButton.onclick = () => {
-      cleanup();
+    addManagedListener(restartButton, 'click', () => {
+      // Aufräumen + gleichen Modus neu
+      resetGameState();
       startEasyMode();
-    };
+    });
   }
   if (goBackGameOver) {
-    goBackGameOver.onclick = () => {
-      cleanup();
+    addManagedListener(goBackGameOver, 'click', () => {
+      resetGameState();
       gameOverScreen.style.display = 'none';
       startScreen.style.display    = 'block';
-    };
+    });
   }
 
-  // Optional: historischen Best-Streak als Tooltip zeigen
+  // Optional: historischen Best-Streak als Tooltip
   const historic = loadPersistedBestStreak();
   const streakBox = document.getElementById('streak-box');
   if (streakBox && historic > 0) {
     streakBox.title = 'Persönlicher Rekord: ' + historic;
   }
 
-  // Start der Runde
+  // 6) Start der Runde
   moveCircle();
+
+  // 7) Timer/Intervals starten und REGISTRIEREN (wichtig für späteres Reset)
   setMainInterval(moveCircle, MODE_CONFIG.easy.appearTime);
+  registerInterval(interval); // 'interval' wird von core.js gesetzt
+
   startCountdown(MODE_CONFIG.easy.durationSec);
+  registerInterval(countdownInterval); // idem
 }

@@ -1,9 +1,10 @@
 // main.js – Refactor + Best-Streak-Anzeige + Modal-Logik + Dekor-Bouncing + Startscreen-Audio + Reduced-Motion / Performance-Fallback + Trainings-Intro
 
-import { 
-  initCore, 
-  updateBestStreakDisplay 
-} from './core.js';
+import { initCore, updateBestStreakDisplay, reactionTimes,  playerName } from './core.js';
+import { beginSession, finalizeRunAndPersist, loadRuns, loadBests, loadPlaytime } from './stats.js';
+
+// NEU - Reset Fuktion
+import { resetGameState } from './reset.js';
 
 import { startEasyMode }   from './easy.js';
 import { startMediumMode } from './medium.js';
@@ -31,6 +32,162 @@ const lowConcurrency = (() => {
   const dm = navigator.deviceMemory || 4; // in GB, fallback if undefined
   return hc <= 2 || (dm && dm <= 2);
 })();
+
+/* =======================
+   MUSIK-GUARD (GLOBAL)
+   ======================= */
+// Blockiert Startscreen-Musik während des Spielens:
+window.__fdkBlockStartMusic = window.__fdkBlockStartMusic ?? false;
+window.fdkBlockStartMusic   = () => { window.__fdkBlockStartMusic = true;  };
+window.fdkAllowStartMusic   = () => { window.__fdkBlockStartMusic = false; };
+
+/* =======================
+   Audio-Toggle Sichtbarkeit
+   ======================= */
+function setAudioToggleVisible(show) {
+  const btn = document.getElementById('start-audio-toggle');
+  if (btn) btn.style.display = show ? 'block' : 'none';
+}
+
+/* =======================
+   Stats-Button unten links
+   ======================= */
+function setStatsToggleVisible(show) {
+  const btn = document.getElementById('stats-toggle');
+  if (btn) btn.style.display = show ? 'block' : 'none';
+}
+function initStatsButton() {
+  if (document.getElementById('stats-toggle')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'stats-toggle';
+  btn.textContent = '📊';
+  btn.setAttribute('aria-label', 'Statistiken');
+  Object.assign(btn.style, {
+    position: 'fixed',
+    bottom: '10px',
+    left: '10px',
+    padding: '6px 10px',
+    fontSize: '14px',
+    zIndex: '999',
+    borderRadius: '6px',
+    border: 'none',
+    background: 'rgba(255,255,255,0.85)',
+    cursor: 'pointer',
+  });
+
+  btn.addEventListener('click', openStatsModal);
+  document.body.appendChild(btn);
+  setStatsToggleVisible(false);
+}
+
+/* =======================
+   Stats-Modal Logik
+   ======================= */
+function fmtSec(s) {
+  s = Math.max(0, Math.round(+s || 0));
+  if (s < 60) return `${s} s`;
+  if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s`;
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+  return `${h}h ${m}m`;
+}
+function fmtPct(x) { return `${Math.round((+x || 0)*100)}%`; }
+function fmtRt(x)  { const v = +x || 0; return `${v.toFixed(2)} s`; }
+function safeText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+
+function renderStatsModal() {
+  const runsWrap = loadRuns();
+  const runs = (runsWrap?.runs || []).slice();
+  const bests = loadBests();
+  const play  = loadPlaytime();
+
+  // Letzter Run (falls vorhanden)
+  const last = runs.length ? runs[runs.length - 1] : null;
+  if (last) {
+    safeText('s-last-mode', last.modeId || last.modeGroup || '–');
+    safeText('s-score', String(last.score || 0));
+    safeText('s-acc', fmtPct(last.accuracy || 0));
+    safeText('s-avg', fmtRt(last.avgRt || 0));
+    safeText('s-med', fmtRt(last.medRt || 0));
+    safeText('s-beststreak', String(last.bestStreak || 0));
+    safeText('s-hpm', (last.hpm || 0).toFixed(1));
+    safeText('s-duration', fmtSec(last.durationSec || 0));
+  } else {
+    ['s-last-mode','s-score','s-acc','s-avg','s-med','s-beststreak','s-hpm','s-duration']
+      .forEach(id => safeText(id, '–'));
+  }
+
+  // Spielzeit: heute & 7 Tage
+  const todayKey = (new Date()).toISOString().slice(0,10); // YYYY-MM-DD lokal reicht hier grob
+  const todaySec = play?.byDay?.[todayKey]?.seconds || 0;
+  let sevenDays = 0;
+  if (play?.byDay) {
+    const days = Object.keys(play.byDay).sort().slice(-7);
+    sevenDays = days.reduce((sum, d) => sum + (play.byDay[d]?.seconds || 0), 0);
+  }
+  safeText('s-today', fmtSec(todaySec));
+  safeText('s-7d', fmtSec(sevenDays));
+
+  // Bestwerte (global)
+  const g = bests?.global || {};
+  safeText('b-bestscore', String(g.bestScore ?? 0));
+  safeText('b-longest', fmtSec(g.longestSessionSec || 0));
+  safeText('b-avg', g.bestAvgRt != null ? fmtRt(g.bestAvgRt) : '–');
+  safeText('b-acc', g.bestAccuracy != null ? fmtPct(g.bestAccuracy) : '–');
+  safeText('b-hpm', g.bestHpm != null ? (g.bestHpm.toFixed(1)) : '–');
+  safeText('b-streak', String(play?.dayStreak || 0));
+
+  // Letzte 5 Runden
+  const tbody = document.querySelector('#runs-table tbody');
+  if (tbody) {
+    tbody.innerHTML = '';
+    runs.slice(-5).reverse().forEach(run => {
+      const tr = document.createElement('tr');
+      const dt = new Date(run.tsEnd || Date.now());
+      const dstr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      tr.innerHTML = `
+        <td>${dstr}</td>
+        <td>${run.modeId || run.modeGroup || '–'}</td>
+        <td>${run.score ?? 0}</td>
+        <td>${fmtRt(run.avgRt || 0)}</td>
+        <td>${fmtPct(run.accuracy || 0)}</td>
+        <td>${fmtSec(run.durationSec || 0)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+}
+
+function openStatsModal() {
+  const m = document.getElementById('stats-modal');
+  if (!m) return;
+  renderStatsModal();
+  m.style.display = 'flex';
+}
+function closeStatsModal() {
+  const m = document.getElementById('stats-modal');
+  if (m) m.style.display = 'none';
+}
+function initStatsModalWiring() {
+  const m = document.getElementById('stats-modal');
+  if (!m) return;
+
+  const closeBtn = m.querySelector('.modal-close');
+  closeBtn?.addEventListener('click', closeStatsModal);
+  m.addEventListener('click', (e) => { if (e.target === m) closeStatsModal(); });
+
+  const tabBtns = m.querySelectorAll('.tab-btn');
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      m.querySelector('#stats-tab-now').style.display = (tab === 'now') ? 'block' : 'none';
+      m.querySelector('#stats-tab-history').style.display = (tab === 'history') ? 'block' : 'none';
+    });
+  });
+}
+
 
 // === Startscreen-Audio ===
 let startScreenAudio = null;
@@ -64,6 +221,9 @@ function initStartscreenAudio() {
   });
   document.body.appendChild(muteBtn);
 
+  // Initial: Button ausblenden (nur Startscreen zeigt ihn)
+  muteBtn.style.display = 'none';
+
   let muted = false;
   const updateButton = () => {
     muteBtn.textContent = muted ? '🔇' : '🔈';
@@ -82,6 +242,9 @@ function initStartscreenAudio() {
     }
     updateButton();
   });
+
+  // global verfügbar machen (für Spiel-Module)
+  window.stopStartscreenMusic = stopStartscreenMusic;
 }
 
 function fadeInStartscreenAudio(targetVol = 0.15, durationMs = 500) {
@@ -100,7 +263,9 @@ function fadeInStartscreenAudio(targetVol = 0.15, durationMs = 500) {
   }, stepTime);
 }
 
+// Musik nur bei Interaktion starten – aber **NICHT**, wenn geblockt
 function enableStartscreenMusicOnce() {
+  if (window.__fdkBlockStartMusic) return; // GUARD: im Spiel keine Musik starten
   if (startScreenAudioEnabled) return;
   if (!startScreenAudio) return;
   startScreenAudio.play().catch(() => {
@@ -164,21 +329,49 @@ function showStartScreen() {
   updateHighscoreUI();
   updateBestStreakDisplay();
 
+  // Beim Startscreen darf Musik wieder starten
+  window.fdkAllowStartMusic?.();
+
   showAudioPrompt();
   waitForInteractionToStartAudio();
+
+  // Buttons nur auf Startscreen sichtbar
+  setAudioToggleVisible(true);
+  setStatsToggleVisible(true);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   // Core initialisieren
   initCore();
 
-  // Audio vorbereiten
-  initStartscreenAudio();
+  initStatsButton();
+  initStatsModalWiring();
 
-  // Mode-Buttons: beim Start stop Music und dann starten
-  document.getElementById('btn-easy')?.addEventListener('click', () => { stopStartscreenMusic(); startEasyMode(); });
-  document.getElementById('btn-medium')?.addEventListener('click', () => { stopStartscreenMusic(); startMediumMode(); });
-  document.getElementById('btn-hard')?.addEventListener('click', () => { stopStartscreenMusic(); startHardMode(); });
+  // Audio + Stats-Button vorbereiten
+  initStartscreenAudio();
+  initStatsButton();
+
+  // Standard: außerhalb Startscreen erstmal verstecken
+  setAudioToggleVisible(false);
+  setStatsToggleVisible(false);
+
+  // Mode-Buttons: beim Start Spiel **blocken** wir Musik und stoppen sie
+  document.getElementById('btn-easy')  ?.addEventListener('click', () => { 
+    stopStartscreenMusic(); window.fdkBlockStartMusic?.(); 
+    setAudioToggleVisible(false); setStatsToggleVisible(false);
+    startEasyMode(); 
+  });
+  document.getElementById('btn-medium')?.addEventListener('click', () => { 
+    stopStartscreenMusic(); window.fdkBlockStartMusic?.(); 
+    setAudioToggleVisible(false); setStatsToggleVisible(false);
+    startMediumMode(); 
+  });
+  document.getElementById('btn-hard')  ?.addEventListener('click', () => { 
+    stopStartscreenMusic(); window.fdkBlockStartMusic?.(); 
+    setAudioToggleVisible(false); setStatsToggleVisible(false);
+    startHardMode(); 
+  });
+
   // Trainingsmodus mit Intro-Modal (ersetzt direkte startTraining-Aufruf)
   const trainingBtn = document.getElementById('btn-training');
   const trainingIntroModal = document.getElementById('training-info-modal');
@@ -190,6 +383,8 @@ window.addEventListener('DOMContentLoaded', () => {
     trainingBtn.addEventListener('click', () => {
       if (localStorage.getItem('seenTrainingIntro') === 'true') {
         stopStartscreenMusic();
+        window.fdkBlockStartMusic?.();
+        setAudioToggleVisible(false); setStatsToggleVisible(false);
         startTraining();
         return;
       }
@@ -205,6 +400,8 @@ window.addEventListener('DOMContentLoaded', () => {
       }
       if (trainingIntroModal) trainingIntroModal.style.display = 'none';
       stopStartscreenMusic();
+      window.fdkBlockStartMusic?.();
+      setAudioToggleVisible(false); setStatsToggleVisible(false);
       startTraining();
     });
   }
@@ -226,10 +423,26 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   // Audio-Training / andere Modi
-  document.getElementById('btn-easyaudio')?.addEventListener('click', () => { stopStartscreenMusic(); startEasyAudioColorMode(); });
-  document.getElementById('btn-mediaudio')?.addEventListener('click', () => { stopStartscreenMusic(); startMediumAudioColorMode(); });
-  document.getElementById('btn-hardaudio')?.addEventListener('click', () => { stopStartscreenMusic(); startHardAudioColorMode(); });
-  document.getElementById('btn-timedtrain')?.addEventListener('click', () => { stopStartscreenMusic(); startTrainingTimedColor(); });
+  document.getElementById('btn-easyaudio')?.addEventListener('click', () => { 
+    stopStartscreenMusic(); window.fdkBlockStartMusic?.(); 
+    setAudioToggleVisible(false); setStatsToggleVisible(false);
+    startEasyAudioColorMode(); 
+  });
+  document.getElementById('btn-mediaudio')?.addEventListener('click', () => { 
+    stopStartscreenMusic(); window.fdkBlockStartMusic?.(); 
+    setAudioToggleVisible(false); setStatsToggleVisible(false);
+    startMediumAudioColorMode(); 
+  });
+  document.getElementById('btn-hardaudio')?.addEventListener('click', () => { 
+    stopStartscreenMusic(); window.fdkBlockStartMusic?.(); 
+    setAudioToggleVisible(false); setStatsToggleVisible(false);
+    startHardAudioColorMode(); 
+  });
+  document.getElementById('btn-timedtrain')?.addEventListener('click', () => { 
+    stopStartscreenMusic(); window.fdkBlockStartMusic?.(); 
+    setAudioToggleVisible(false); setStatsToggleVisible(false);
+    startTrainingTimedColor(); 
+  });
 
   // Info → Name Screen
   const infoContinue = document.getElementById('info-continue');
@@ -278,12 +491,16 @@ window.addEventListener('DOMContentLoaded', () => {
       stopGridEasy();
       stopGridMedium();
       stopGridHard();
+
+      // Beim Startscreen wieder erlauben und Buttons zeigen
+      window.fdkAllowStartMusic?.();
       showStartScreen();
     });
   }
   const gameoverBack = document.getElementById('gameover-back-button');
   if (gameoverBack) {
     gameoverBack.addEventListener('click', () => {
+      window.fdkAllowStartMusic?.();
       showStartScreen();
     });
   }
@@ -299,9 +516,10 @@ window.addEventListener('DOMContentLoaded', () => {
         if (lastGridDifficulty === 'easy')      { startGridEasyFlow(); }
         else if (lastGridDifficulty === 'medium'){ startGridMediumFlow(); }
         else if (lastGridDifficulty === 'hard')  { startGridHardFlow(); }
-        else { showStartScreen(); }
+        else { window.fdkAllowStartMusic?.(); showStartScreen(); }
       } else {
         // Falls „Weiter spielen“ aus einem anderen Modus kam:
+        window.fdkAllowStartMusic?.();
         showStartScreen();
       }
     });
@@ -356,56 +574,116 @@ window.addEventListener('DOMContentLoaded', () => {
   document.body.classList.add('use-js-bouncing');
   startDecorBouncing();
 
-  console.log('▶ main.js initialisiert (Refactor + Modals + Bouncing + Audio + Trainings-Intro + Grid-Split + Restart)');
+  console.log('▶ main.js initialisiert (Refactor + Modals + Bouncing + Audio + Trainings-Intro + Grid-Split + Restart + Musik-Guard + Audio/Stats-Buttons sichtbar nur Startscreen)');
 });
 
 // Helper: gemeinsame Vorbereitung für alle Grid-Varianten
 function prepareGridScreen() {
+  // kleine Helpers mit Null-Check
+  const hide = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+  const show = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'block'; };
+
+  // Grid-Modal schließen (falls offen)
   const gridModal = document.getElementById('grid-modal');
   if (gridModal) gridModal.style.display = 'none';
 
-  // Screens umschalten
-  document.getElementById('start-screen').style.display = 'none';
-  document.getElementById('game-over-screen').style.display = 'none';
-  document.getElementById('training-end-screen').style.display = 'none';
-  document.getElementById('game-screen').style.display = 'block';
+  // Screens umschalten (alles safe, auch wenn ein Element fehlt)
+  hide('start-screen');
+  hide('game-over-screen');
+  hide('training-end-screen'); // kann fehlen -> egal
+  show('game-screen');
 
   // HUD reset
-  const scoreEl = document.getElementById('score'); if (scoreEl) scoreEl.textContent = '0';
-  const timerEl = document.getElementById('timer'); if (timerEl) timerEl.textContent = '30';
+  const scoreEl  = document.getElementById('score');  if (scoreEl)  scoreEl.textContent  = '0';
+  const timerEl  = document.getElementById('timer');  if (timerEl)  timerEl.textContent  = '30';
   const streakEl = document.getElementById('streak'); if (streakEl) streakEl.textContent = '0';
 
-  // Startscreen-Musik stoppen
+  // Startscreen-Musik stoppen und blocken (wir sind im Spiel) + Buttons ausblenden
   stopStartscreenMusic();
+  window.fdkBlockStartMusic?.();
+  setAudioToggleVisible(false);
+  setStatsToggleVisible(false);
+
+  // Optional: Warnung, falls der Game-Screen wirklich fehlt
+  if (!document.getElementById('game-screen')) {
+    console.warn('[prepareGridScreen] #game-screen nicht gefunden – prüfe dein index.html');
+  }
 }
 
 // Startfunktionen je Schwierigkeitsgrad (merken den Modus für „Weiter spielen“)
-function startGridEasyFlow()   { lastModeType = 'grid'; lastGridDifficulty = 'easy';   prepareGridScreen(); startGridEasy(); }
-function startGridMediumFlow() { lastModeType = 'grid'; lastGridDifficulty = 'medium'; prepareGridScreen(); startGridMedium(); }
-function startGridHardFlow()   { lastModeType = 'grid'; lastGridDifficulty = 'hard';   prepareGridScreen(); startGridHard(); }
+function startGridEasyFlow()   { 
+  lastModeType = 'grid'; lastGridDifficulty = 'easy';   
+  prepareGridScreen(); 
+  beginSession({ modeGroup:'grid', modeId:'grid-easy', difficulty:'easy' });
+  startGridEasy(); 
+}
+function startGridMediumFlow() { 
+  lastModeType = 'grid'; lastGridDifficulty = 'medium'; 
+  prepareGridScreen(); 
+  beginSession({ modeGroup:'grid', modeId:'grid-medium', difficulty:'medium' });
+  startGridMedium(); 
+}
+function startGridHardFlow()   { 
+  lastModeType = 'grid'; lastGridDifficulty = 'hard';   
+  prepareGridScreen(); 
+  beginSession({ modeGroup:'grid', modeId:'grid-hard', difficulty:'hard' });
+  startGridHard(); 
+}
 
 // Ende-Flow vom Grid-Modus (30s vorbei)
 window.addEventListener('gridmode:finished', (ev) => {
   const { score, misses, bestStreak } = ev.detail || {};
 
-  // Game-Screen aus, Game-Over an
-  document.getElementById('game-screen').style.display = 'none';
-  document.getElementById('game-over-screen').style.display = 'block';
+  // Run in localStorage speichern (inkl. Spielzeit/Ø/Median/HPM)
+  finalizeRunAndPersist({
+    score,
+    misses,
+    bestStreak,
+    reactionTimes, // kommt aus core.js (Import vorhanden)
+    playerName: (playerName || localStorage.getItem('lastPlayerName') || '')
+    // durationSec: ev.detail?.duration  // optional; wenn weggelassen, wird tsStart genutzt
+  });
 
-  // Felder füllen
-  const finalScore = document.getElementById('final-score');
-  const finalMiss  = document.getElementById('final-misses');
-  const finalBS    = document.getElementById('final-persisted-best-streak');
-  const finalAcc   = document.getElementById('final-accuracy');
+  // Screens umschalten
+  const gameScreen = document.getElementById('game-screen');
+  const overScreen = document.getElementById('game-over-screen');
+  if (gameScreen) gameScreen.style.display = 'none';
+  if (overScreen) overScreen.style.display = 'block';
 
-  if (finalScore) finalScore.textContent = String(score ?? 0);
-  if (finalMiss)  finalMiss.textContent  = String(misses ?? 0);
-  if (finalBS)    finalBS.textContent    = String(bestStreak ?? 0);
+  // Musik auf Game-Over grundsätzlich erlauben (falls gewünscht)
+  window.fdkAllowStartMusic?.();
 
-  // Accuracy: Treffer = score, Versuche = score + misses
+  // Helper: erstes vorhandenes Ziel setzen
+  const setText = (ids, val) => {
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (el) { el.textContent = val; return true; }
+    }
+    return false;
+  };
+
+  // Standardwerte
+  setText(['final-score'], String(score ?? 0));
+  setText(['final-misses'], String(misses ?? 0));
+  setText(['final-persisted-best-streak','final-best-streak'], String(bestStreak ?? 0));
+
+  // Trefferquote
   const attempts = (score ?? 0) + (misses ?? 0);
   const acc = attempts > 0 ? Math.round((score / attempts) * 100) : 0;
-  if (finalAcc) finalAcc.textContent = acc + '%';
+  setText(['final-accuracy'], acc + '%');
+
+  // Spielername
+  const name = playerName || localStorage.getItem('lastPlayerName') || '';
+  setText(['final-player','final-player-name'], name);
+
+  // Ø Reaktionszeit aus core.reactionTimes
+  let avgSec = 0;
+  if (Array.isArray(reactionTimes) && reactionTimes.length > 0) {
+    const sum = reactionTimes.reduce((a, b) => a + b, 0);
+    avgSec = sum / reactionTimes.length;
+  }
+  setText(['final-reaction-time','final-reaction','final-avg-reaction'],
+          (avgSec ? avgSec.toFixed(2) : '0') + ' s');
 });
 
 /**

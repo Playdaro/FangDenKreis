@@ -1,30 +1,46 @@
-// trainingTimedColor.js – Getaktetes Audio‑Training mit 60 Sek Timer, Level‑Up‑Pause, XP & Reaktionszeiten
+// trainingTimedColor.js – Timed Audio-Training (2 Bälle) – nutzt NUR den Game-Over-Screen
+// Mit Persistenz (XP/Level) pro Spielername via localStorage
 
 import {
-  // Spielfeld & Kreise
-  circle, circle2, circle3, circle4, gameArea,
-  // Screens
-  startScreen, gameScreen, gameOverScreen,
-  // Score/Miss Reset & Logging
-  resetScore, resetMisses,
-  incrementScore, incrementMisses,
-  // Reaktionszeiten
-  reactionTimes, lastMoveTime,
-  // Bewegung & Timing
-  setLastMoveTime, moveCircle, moveCircleSafely, triggerMissFlash,
-  // Game‑Over Funktionen
+  // DOM & State
+  circle,
+  circle2,
+  gameArea,
+  scoreDisplay,
+  startScreen,
+  gameScreen,
+  gameOverScreen,
+  reactionTimes,
+  lastMoveTime,
+  playerName,            // ← für Nutzer-spezifische Speicherung
+  // Mutatoren
+  resetScore,
+  resetMisses,
+  incrementScore,
+  incrementMisses,
+  setLastMoveTime,
+  // Core
+  moveCircle,
+  moveCircleSafely,
+  triggerMissFlash,
+  setEndGame,
   baseEndGame,
-  // Trainings‑State & XP/Level
-  trainLevel, resetTimedTraining, incrementTrainXP,
-  // Countdown‑UI
-  trainingTimeDisplay, trainLevelDisplay, trainXPFill, trainXPAmount
+  startCountdown,
+  // vom Core gesetzte Timer-ID
+  countdownInterval
 } from './core.js';
 
-// Lokaler Interval-Handler für Ballwechsel (Spawn)
-let spawnIntervalId = null;
+import {
+  resetGameState,
+  addManagedListener,
+  registerInterval
+} from './reset.js';
 
-// Farboptionen mit Namen für TTS
-const COLOR_OPTIONS = [
+/** Dauer (Sekunden) */
+const DURATION_SEC = 60;
+
+// Farbpool (wie in Audio-Easy)
+const COLORS = [
   { name: 'Rot',     code: '#e74c3c' },
   { name: 'Blau',    code: '#3498db' },
   { name: 'Grün',    code: '#2ecc71' },
@@ -32,194 +48,204 @@ const COLOR_OPTIONS = [
   { name: 'Violett', code: '#9b59b6' }
 ];
 
-// Level‑abhängige Parameter
-function getCountForLevel(lvl) {
-  if (lvl <= 5)  return 2;
-  if (lvl <=10) return 3;
-  if (lvl <=15) return 4;
-  return 5;
+/* ========= Persistenz (pro Spieler) ========= */
+function keyXP()    { return `fdk:trainTimed:${playerName || 'anon'}:xp`; }
+function keyLevel() { return `fdk:trainTimed:${playerName || 'anon'}:level`; }
+
+function loadProgress() {
+  const xp    = Number(localStorage.getItem(keyXP())    || 0);
+  const level = Number(localStorage.getItem(keyLevel()) || 1);
+  return { xp: isNaN(xp) ? 0 : xp, level: isNaN(level) ? 1 : level };
 }
-function getIntervalForLevel(lvl) {
-  if (lvl <= 5)  return 1700;
-  if (lvl <=10) return 1500;
-  if (lvl <=15) return 1300;
-  return 1100;
+function saveProgress(xp, level) {
+  localStorage.setItem(keyXP(),    String(xp));
+  localStorage.setItem(keyLevel(), String(level));
+}
+function clearProgress() {
+  localStorage.removeItem(keyXP());
+  localStorage.removeItem(keyLevel());
 }
 
-let correctColorName;
+/* ========= Trainings-Status ========= */
+let correctColor = null;
+let trainXP = 0;
+let trainLevel = 1;
 
-// TTS‑Ansage
+/* ========= UI-Helfer ========= */
+function setTrainUI(initial = false) {
+  const timeEl   = document.getElementById('training-time');
+  const lvlEl    = document.getElementById('train-level');
+  const xpFillEl = document.getElementById('train-xp-fill');
+  const xpAmtEl  = document.getElementById('train-xp-amount');
+  if (lvlEl)    lvlEl.textContent = `Level ${trainLevel}`;
+  if (xpAmtEl)  xpAmtEl.textContent = `${trainXP} XP`;
+  if (xpFillEl) xpFillEl.style.width = `${Math.min(100, (trainXP % 20) * 5)}%`; // 20 XP → Level-Up
+  if (initial && timeEl) timeEl.textContent = `${DURATION_SEC}s`;
+}
+
+function levelIfNeeded() {
+  const newLevel = Math.floor(trainXP / 20) + 1;
+  if (newLevel !== trainLevel) {
+    trainLevel = newLevel;
+  }
+  // Immer UI aktualisieren + speichern
+  const xpFillEl = document.getElementById('train-xp-fill');
+  if (xpFillEl) xpFillEl.style.width = `${Math.min(100, (trainXP % 20) * 5)}%`;
+  const xpAmtEl = document.getElementById('train-xp-amount');
+  if (xpAmtEl) xpAmtEl.textContent = `${trainXP} XP`;
+  const lvlEl = document.getElementById('train-level');
+  if (lvlEl) lvlEl.textContent = `Level ${trainLevel}`;
+
+  saveProgress(trainXP, trainLevel);
+}
+
+/* ========= TTS ========= */
 function speak(text) {
   if ('speechSynthesis' in window) {
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+    const msg = new SpeechSynthesisUtterance(text);
+    window.speechSynthesis.speak(msg);
   }
 }
 
-// Platziert Kreise und spricht die korrekte Farbe
-function spawnBalls() {
-  const count = getCountForLevel(trainLevel);
-  const chosen = COLOR_OPTIONS
-    .sort(() => 0.5 - Math.random())
-    .slice(0, count);
+/* ========= Runden-Logik ========= */
+function spawnRound() {
+  const [a, b] = [...COLORS].sort(() => 0.5 - Math.random()).slice(0, 2);
 
-  // Hauptkreis
-  circle.style.background = chosen[0].code;
-  circle.dataset.color    = chosen[0].name;
-  circle.style.display    = 'block';
+  circle.dataset.color  = a.name;
+  circle2.dataset.color = b.name;
+
+  circle.style.background  = a.code;
+  circle2.style.background = b.code;
+
+  circle.style.display  = 'block';
+  circle2.style.display = 'block';
+
   moveCircle();
-
-  // Zusatzkreise
-  const extras = [circle2, circle3, circle4];
-  for (let i = 1; i < count; i++) {
-    extras[i-1].style.background = chosen[i].code;
-    extras[i-1].dataset.color    = chosen[i].name;
-    extras[i-1].style.display    = 'block';
-    moveCircleSafely(extras[i-1]);
-  }
-  // Rest verstecken
-  for (let i = count-1; i < extras.length; i++) {
-    extras[i].style.display = 'none';
-  }
+  moveCircleSafely(circle2);
 
   setLastMoveTime(Date.now());
-  correctColorName = chosen[Math.floor(Math.random() * count)].name;
-  speak(correctColorName);
+
+  correctColor = Math.random() < 0.5 ? a.name : b.name;
+  speak(correctColor);
 }
 
-// Startet oder reset­t den Ball‑Spawn‑Loop
-function startSpawnTimer() {
-  clearInterval(spawnIntervalId);
-  spawnBalls();
-  spawnIntervalId = setInterval(spawnBalls, getIntervalForLevel(trainLevel));
-}
+function handleCircleClick(e) {
+  const chosen = e.target.dataset.color;
+  if (!chosen) return;
 
-// Klick‐Handler
-function handleBallClick(e) {
-  const clicked = e.target.dataset.color;
-  if (!clicked) return;
-  // Reaktionszeit erfassen
-  reactionTimes.push((Date.now() - lastMoveTime) / 1000);
-  if (clicked === correctColorName) {
+  if (chosen === correctColor) {
+    reactionTimes.push((Date.now() - lastMoveTime) / 1000);
     incrementScore();
-    incrementTrainXP();
-    // Neuer Spawn sofort, 60s‑Timer bleibt unverändert
-    startSpawnTimer();
+    scoreDisplay.textContent = String(+scoreDisplay.textContent + 1);
+
+    // XP erhöhen + Level-Check + speichern
+    trainXP += 1;
+    levelIfNeeded();
+
+    spawnRound();
   } else {
     incrementMisses();
     triggerMissFlash();
   }
 }
 
-// Fehlklick in Spielfeld
 function handleMissClick(e) {
-  if (![circle, circle2, circle3, circle4].includes(e.target)) {
-    incrementMisses();
-    triggerMissFlash();
-  }
+  if (e.target === circle || e.target === circle2) return;
+  incrementMisses();
+  triggerMissFlash();
 }
 
-// Cleanup‐Routine
-function cleanup() {
-  [circle, circle2, circle3, circle4].forEach(c =>
-    c.removeEventListener('click', handleBallClick)
-  );
-  gameArea.removeEventListener('click', handleMissClick);
-  clearInterval(spawnIntervalId);
-}
+/* ========= Ende → nur normaler Game-Over ========= */
+function endTimedTrainingToGameOver() {
+  // Timed-UI ausblenden (kosmetisch)
+  const timedUI = document.getElementById('timed-training-ui');
+  if (timedUI) timedUI.style.display = 'none';
 
-// Wird nach Countdown-Ende aufgerufen: räumt auf, zeigt GameOver und bindet Buttons
-function endTrainingTimedColor() {
-  cleanup();
-  document.getElementById('timed-training-ui').style.display = 'none';
+  // Sicherheit: aktuellen Stand speichern
+  saveProgress(trainXP, trainLevel);
+
+  // Normale Auswertung + Anzeige des Game-Over-Screens
   baseEndGame();
+}
 
-  // Button‑Handler setzen
-  const restartBtn = document.getElementById('restart-button');
-  if (restartBtn) {
-    // Neuer Button‑Text
-    restartBtn.textContent = 'Weiter spielen';
-    restartBtn.addEventListener('click', () => {
-      document.getElementById('timed-training-ui').style.display = 'block';
-      gameOverScreen.style.display = 'none';
-      gameScreen.style.display     = 'block';
-      // Start ohne Statreset
-      resumeTrainingTimedColor();
+/* ========= Externer Reset-Button (Training zurücksetzen) ========= */
+function bindTrainingResetButton() {
+  const btn = document.getElementById('training-reset');
+  if (!btn) return;
+  addManagedListener(btn, 'click', () => {
+    // Fortschritt wirklich löschen
+    clearProgress();
+    resetGameState();
+    startTrainingTimedColor();
+  });
+}
+
+/* ========= Start ========= */
+export function startTrainingTimedColor() {
+  // 0) Clean start (Timer/Listener killen, UI/HUD resetten)
+  resetGameState();
+
+  // 1) Persistenten Fortschritt laden
+  const loaded = loadProgress();
+  trainXP = loaded.xp;
+  trainLevel = Math.max(1, loaded.level);
+  setTrainUI(true); // initial: Time setzen, Level/XP anzeigen
+
+  // 2) Runde-Stats (Session) zurücksetzen
+  resetScore();
+  resetMisses();
+  reactionTimes.length = 0;
+  scoreDisplay.textContent = '0';
+
+  // 3) UI: Timed-Training-Bereich einblenden
+  const timedUI = document.getElementById('timed-training-ui');
+  if (timedUI) timedUI.style.display = 'block';
+
+  // 4) Screens
+  startScreen.style.display    = 'none';
+  gameOverScreen.style.display = 'none';
+  gameScreen.style.display     = 'block';
+
+  // 5) Listener (managed)
+  if (circle)  addManagedListener(circle,  'click', handleCircleClick);
+  if (circle2) addManagedListener(circle2, 'click', handleCircleClick);
+  if (gameArea) addManagedListener(gameArea, 'click', handleMissClick);
+
+  // Back/Restart/GameOver (managed + Reset)
+  const backButton     = document.getElementById('back-button');
+  const restartBtn     = document.getElementById('restart-button');
+  const goBackGameOver = document.getElementById('gameover-back-button');
+
+  if (backButton) {
+    addManagedListener(backButton, 'click', () => {
+      // Vor Verlassen speichern (zur Sicherheit)
+      saveProgress(trainXP, trainLevel);
+      resetGameState();
+      gameScreen.style.display  = 'none';
+      startScreen.style.display = 'block';
     });
   }
-
-  const goBackBtn = document.getElementById('gameover-back-button');
-  if (goBackBtn) {
-    goBackBtn.addEventListener('click', () => {
-      cleanup();
-      document.getElementById('timed-training-ui').style.display = 'none';
-      gameScreen.style.display     = 'none';
+  if (restartBtn) {
+    addManagedListener(restartBtn, 'click', () => {
+      // Neustart Training: Fortschritt bleibt erhalten
+      saveProgress(trainXP, trainLevel);
+      resetGameState();
+      startTrainingTimedColor();
+    });
+  }
+  if (goBackGameOver) {
+    addManagedListener(goBackGameOver, 'click', () => {
+      resetGameState();
+      gameOverScreen.style.display = 'none';
       startScreen.style.display    = 'block';
     });
   }
+
+  // 6) Countdown starten + End-Hook registrieren
+  setEndGame(endTimedTrainingToGameOver); // zeigt NUR den normalen Game-Over
+  startCountdown(DURATION_SEC);
+  registerInterval(countdownInterval);
+
+  // 7) Erste Runde
+  spawnRound();
 }
-
-// Trainingsmodus starten oder fortsetzen
-export function startTrainingTimedColor(resetStats = true) {
-  // State & UI Reset nur, wenn resetStats true
-  if (resetStats) {
-    resetTimedTraining();
-    resetScore();
-    resetMisses();
-    if (trainingTimeDisplay) trainingTimeDisplay.textContent = '60s';
-    if (trainLevelDisplay)   trainLevelDisplay.textContent   = 'Level 1';
-    if (trainXPFill)         trainXPFill.style.width         = '0%';
-    if (trainXPAmount)       trainXPAmount.textContent       = '0 XP';
-  } else {
-    // Tempo‑UI zurücksetzen, XP/Level behalten
-    if (trainingTimeDisplay) trainingTimeDisplay.textContent = '60s';
-  }
-
-  // Screens einblenden
-  startScreen.style.display    = 'none';
-  gameScreen.style.display     = 'block';
-  gameOverScreen.style.display = 'none';
-  document.getElementById('timed-training-ui').style.display = 'block';
-
-  // Back‑Button im laufenden Training binden
-  const backBtn = document.getElementById('back-button');
-  if (backBtn) {
-    backBtn.onclick = () => {
-      cleanup();
-      clearInterval(countdown);
-      clearInterval(spawnIntervalId);
-      document.getElementById('timed-training-ui').style.display = 'none';
-      gameScreen.style.display  = 'none';
-      startScreen.style.display = 'block';
-    };
-  }
-
-  // Eigener 60 s‑Countdown
-  let remaining = 60;
-  if (trainingTimeDisplay) trainingTimeDisplay.textContent = remaining + 's';
-  const countdown = setInterval(() => {
-    remaining--;
-    if (trainingTimeDisplay) trainingTimeDisplay.textContent = remaining + 's';
-    if (remaining <= 0) {
-      clearInterval(countdown);
-      clearInterval(spawnIntervalId);
-      endTrainingTimedColor();
-    }
-  }, 1000);
-
-  // Ball‑Spawn‑Loop starten
-  startSpawnTimer();
-
-  // Klick‑Listener setzen
-  [circle, circle2, circle3, circle4].forEach(c =>
-    c.addEventListener('click', handleBallClick)
-  );
-  gameArea.addEventListener('click', handleMissClick);
-}
-
-// Hilfsfunktion: Fortsetzen ohne Reset
-function resumeTrainingTimedColor() {
-  // Gleiche Logik wie startTrainingTimedColor(false)
-  startTrainingTimedColor(false);
-}
-
-// Ende Datei

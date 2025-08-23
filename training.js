@@ -1,138 +1,214 @@
-// training.js
+// training.js – Visuelles Training (Level/XP) – 60s Countdown + normaler Game-Over-Screen
+// Musik nur im Spiel aus: via Guard blocken/erlauben, kein Modul-Kreis (nutzt window.*)
+
 import {
-  setDifficulty,
-  resetScore,
-  resetMisses,
-  clearReactionTimes,
-  setMainInterval,
-  clearCircleIntervals,
-  setCurrentLevel,
-  setXP,
-  incrementXP,
-  setLastMoveTime,
-  stats,
-  currentLevel,
-  xp,
-  interval,
-  countdownInterval,
-  misses,
-  lastMoveTime,
-  levels,
+  // DOM & State
   circle,
+  gameArea,
   scoreDisplay,
   startScreen,
   gameScreen,
   gameOverScreen,
-  resetBtn,
-  levelDisplay,
-  xpFill,
-  xpAmount,
-  moveCircle,
-  startCountdown,
+  reactionTimes,
+  lastMoveTime,
+  // Mutatoren
+  resetScore,
+  resetMisses,
+  incrementScore,
   incrementMisses,
-  endTraining
+  setLastMoveTime,
+  // Core
+  moveCircle,
+  triggerMissFlash,
+  setEndGame,
+  baseEndGame,
+  startCountdown,
+  // vom Core gesetzte Timer-ID (nach startCountdown)
+  countdownInterval
 } from './core.js';
 
-let appearTime, maxMisses, requiredHits;
+import {
+  resetGameState,
+  addManagedListener,
+  registerInterval
+} from './reset.js';
 
-/** Klick‑Handler im Trainingsmodus */
-function handleTrainingClick() {
-  // 1) XP erhöhen & speichern
-  incrementXP();
+/** 60 Sekunden Gesamtdauer */
+const DURATION_SEC = 60;
 
-  // 2) XP‑Leiste und Zahl aktualisieren
-  xpFill.style.width   = `${stats.xp % 100}%`;
-  xpAmount.textContent = `${stats.xp} XP`;
+/** Level: XP-Schwellen + Erschein-Intervall (ms) */
+const LEVELS = [
+  { xp: 0,   appear: 900 },
+  { xp: 10,  appear: 800 },
+  { xp: 25,  appear: 700 },
+  { xp: 45,  appear: 600 },
+  { xp: 70,  appear: 520 },
+  { xp: 100, appear: 450 },
+];
 
-  // 3) Level‑Up prüfen (jede 100 XP)
-  const nextThreshold = (currentLevel + 1) * 100;
-  console.log('DEBUG:', 'XP=', stats.xp, 'currentLevel=', currentLevel, 'threshold=', nextThreshold);
-  if (stats.xp >= nextThreshold) {
-  // 1) Lokales neues Level berechnen
-  const newLevel = currentLevel + 1;
-  // 2) Core‑State aktualisieren
-  setCurrentLevel(newLevel);
-  // 3) UI anzeigen
-  levelDisplay.textContent = `Level ${newLevel}`;
-  // 4) Speed‑Parameter neu setzen
-  appearTime = levels[newLevel]?.appearTime || appearTime;
-  setMainInterval(trainingTick, appearTime);
+let xp = 0;
+let levelIdx = 0;
+let appearTimer = null;
+
+/* ---------- Musik-Helfer (nutzt window.* – keine Importe) ---------- */
+function blockMusic() { try { window.fdkBlockStartMusic?.(); } catch {} }
+function allowMusic() { try { window.fdkAllowStartMusic?.(); } catch {} }
+function stopMusic()  { try { window.stopStartscreenMusic?.(); } catch {} }
+
+/* ---------- UI-Helper ---------- */
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = String(val);
+}
+function setWidth(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.style.width = val;
+}
+function updateLevelUI() {
+  const lvl = LEVELS[levelIdx];
+  setText('levelDisplay', `Level ${levelIdx}`);
+  setText('xpAmount', `${xp} XP`);
+  const curXp  = xp - lvl.xp;
+  const nextXp = (LEVELS[levelIdx + 1]?.xp ?? (lvl.xp + 1));
+  const need   = Math.max(1, nextXp - lvl.xp);
+  const pct    = Math.max(0, Math.min(100, Math.round((curXp / need) * 100)));
+  setWidth('xpFill', `${pct}%`);
 }
 
-  // 4) Kreis neu positionieren & Timer zurücksetzen
+/* ---------- Level / Tempo ---------- */
+function applyLevelSpeed() {
+  if (appearTimer) {
+    clearInterval(appearTimer);
+    appearTimer = null;
+  }
+  const delay = LEVELS[levelIdx].appear;
+  appearTimer = setInterval(() => {
+    moveCircle();
+    setLastMoveTime(Date.now());
+  }, delay);
+  registerInterval(appearTimer);
+}
+
+function tryLevelUp() {
+  while (LEVELS[levelIdx + 1] && xp >= LEVELS[levelIdx + 1].xp) {
+    levelIdx++;
+  }
+  updateLevelUI();
+  applyLevelSpeed();
+}
+
+/* ---------- Events ---------- */
+function handleHit() {
+  reactionTimes.push((Date.now() - lastMoveTime) / 1000);
+  incrementScore();
+  scoreDisplay.textContent = String(+scoreDisplay.textContent + 1);
+  xp += 1;
+  tryLevelUp();
   moveCircle();
   setLastMoveTime(Date.now());
 }
 
-/** Ein Tick im Trainingsmodus: Miss‑Logik + Kreis bewegen */
-function trainingTick() {
-  if (Date.now() - lastMoveTime > appearTime) {
-    incrementMisses();
-    if (misses > maxMisses) {
-      return endTraining();
-    }
-  }
-  moveCircle();
+function handleMiss(e) {
+  if (e.target === circle) return;
+  incrementMisses();
+  triggerMissFlash();
 }
 
-/** Startet den Trainingsmodus */
+/* ---------- Ende → normaler Game-Over ---------- */
+function endTrainingToGameOver() {
+  // Auf dem Game-Over soll Musik erlaubt sein
+  allowMusic();
+  // Standardauswertung → zeigt „Spiel beendet!“-Screen mit allen Stats
+  baseEndGame();
+}
+
+/* ---------- Externer Reset-Button (optional) ---------- */
+function bindTrainingResetButton() {
+  const btn = document.getElementById('training-reset');
+  if (!btn) return;
+  addManagedListener(btn, 'click', () => {
+    // Fortschritt der Session resetten – Audio-Guard bleibt wie beim Start gesetzt
+    resetGameState({ audio: false });
+    startTraining();
+  });
+}
+
+/* ---------- Start ---------- */
 export function startTraining() {
-  // 1) Alle laufenden Intervalle beenden
-  clearInterval(interval);
-  clearCircleIntervals();
-  clearInterval(countdownInterval);
+  // 0) Wir gehen INS SPIEL → Musik blocken + sicher stoppen
+  blockMusic();
+  stopMusic();
 
-  // 2) Stats laden
-  Object.assign(
-    stats,
-    JSON.parse(localStorage.getItem('trainingStats')) || { bestLevel: 0, xp: 0 }
-  );
-  setCurrentLevel(stats.bestLevel);
-  setXP(stats.xp);
+  // 1) Clean start (Timer/Listener/UI resetten – Audio lassen wir in Ruhe)
+  resetGameState({ audio: false });
 
-  // 3) Modus und Spielzustand zurücksetzen
-  setDifficulty('training');
+  // 2) Session-Startwerte
+  xp = 0;
+  levelIdx = 0;
+  updateLevelUI();
+
   resetScore();
   resetMisses();
-  clearReactionTimes();
+  reactionTimes.length = 0;
   scoreDisplay.textContent = '0';
 
-  // 4) Level‑Parameter übernehmen
-  const cfg = levels[stats.bestLevel] || {};
-  appearTime   = cfg.appearTime   || 3000;
-  maxMisses    = cfg.maxMisses    || Infinity;
-  requiredHits = cfg.requiredHits || 10;
+  // Timeranzeige auf 60 setzen (rückwärts via startCountdown)
+  setText('timer', DURATION_SEC);
 
-  // 5) UI initialisieren
-  levelDisplay.textContent = `Level ${stats.bestLevel}`;
-  xpFill.style.width       = `${stats.xp % 100}%`;
-  xpAmount.textContent     = `${stats.xp} XP`;
+  // 3) End-Hook setzen + 60s Countdown starten (registrieren!)
+  setEndGame(endTrainingToGameOver);
+  startCountdown(DURATION_SEC);
+  registerInterval(countdownInterval);
 
-  // 6) Screens umschalten
+  // 4) Screens
   startScreen.style.display    = 'none';
   gameOverScreen.style.display = 'none';
   gameScreen.style.display     = 'block';
-  resetBtn.style.display       = 'inline-block';
 
-  // 7) Klick‑Handler anhängen
-circle.addEventListener('click', handleTrainingClick);
-  
-  // Back‑Button neu belegen und den Listener sauber abmelden
-  document.getElementById('back-button').onclick = () => {
-    circle.removeEventListener('click', handleTrainingClick);
-    clearInterval(interval);
-    clearInterval(countdownInterval);
-    clearCircleIntervals();
-    gameScreen.style.display = 'none';
-    startScreen.style.display = 'block';
-    resetBtn.style.display = 'none';
-  };
+  // 5) Listener (managed) + Navigation
+  if (circle) {
+    circle.style.display = 'block';
+    addManagedListener(circle, 'click', handleHit);
+  }
+  if (gameArea) {
+    addManagedListener(gameArea, 'click', handleMiss);
+  }
+  bindTrainingResetButton();
 
+  const backButton     = document.getElementById('back-button');
+  const restartBtn     = document.getElementById('restart-button');       // „Weiter spielen“
+  const goBackGameOver = document.getElementById('gameover-back-button');
 
-  // 8) Trainings‑Loop starten
+  if (backButton) {
+    addManagedListener(backButton, 'click', () => {
+      // Zurück zum Start → Musik wieder erlauben (Startscreen darf spielen)
+      allowMusic();
+      resetGameState({ audio: false });
+      gameScreen.style.display  = 'none';
+      startScreen.style.display = 'block';
+    });
+  }
+  if (restartBtn) {
+    // „Weiter spielen“ → NOCH im Game-Over, Musik läuft evtl. → sofort blocken & stoppen
+    addManagedListener(restartBtn, 'click', () => {
+      blockMusic();  // ab jetzt darf Musik nicht mehr starten
+      stopMusic();   // falls sie gerade spielt (Game-Over), sofort aus
+      resetGameState({ audio: false });
+      startTraining(); // neue Runde
+    });
+  }
+  if (goBackGameOver) {
+    addManagedListener(goBackGameOver, 'click', () => {
+      // Zurück zum Start vom Game-Over → Musik wieder erlauben
+      allowMusic();
+      resetGameState({ audio: false });
+      gameOverScreen.style.display = 'none';
+      startScreen.style.display    = 'block';
+    });
+  }
+
+  // 6) Erste Bewegung + Tempo nach aktuellem Level
   moveCircle();
-  setMainInterval(trainingTick, appearTime);
-
-  // 9) Countdown (60 s)
-  startCountdown(60);
+  setLastMoveTime(Date.now());
+  applyLevelSpeed(); // startet Intervall gemäß Level 0
 }

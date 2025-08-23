@@ -1,12 +1,19 @@
-// gridHard.js – Hard = alle 9 Felder [0..8]
-// - Startdauer 900ms, Ramp-up ~0,8% pro Hit (0.992), Minimum 600ms
+// gridHard.js – Hard = alle 9 Zellen [0..8]
+// - Startdauer 1000ms
+// - aggressiveres Ramp-up (~1.2% pro Hit) + Bonus-Boost bei Streak 10/25/40
+// - Minimum 600ms
 // - Ziel bleibt nur begrenzte Zeit sichtbar (roundMs), dann Miss + Wechsel
 // - Nach Hit sofort neues Ziel, NIE die gleiche Zelle wie vorher
 // - Kurzes visuelles Hit-Feedback (.hit)
+// - Reset-sicher: nutzt resetGameState, addManagedListener, registerInterval
+// - Reaktionszeit: misst Spawn→Treffer und füllt reactionTimes (für Game-Over-Ø)
 
-const START_MS    = 900;   // Startdauer je Ziel
+import { reactionTimes, lastMoveTime, setLastMoveTime } from './core.js';
+import { resetGameState, addManagedListener, registerInterval } from './reset.js';
+
+const START_MS    = 1000;  // Startdauer je Ziel
 const MIN_MS      = 600;   // nie schneller als 0.6s
-const SPEED_DECAY = 0.992; // ~0,8% schneller pro Treffer
+const SPEED_DECAY = 0.988; // ~1.2% schneller pro Treffer
 
 let state = {
   running: false,
@@ -23,14 +30,18 @@ let state = {
   remaining: 30,
 };
 
-const ALLOW = [0,1,2,3,4,5,6,7,8];
+const ALLOW = [0,1,2,3,4,5,6,7,8]; // alle Felder
 
 export function startGridHard() {
-  const container = document.getElementById('grid-game');
+  const container  = document.getElementById('grid-game');
   const gameScreen = document.getElementById('game-screen');
   if (!container || !gameScreen) return;
 
-  stopGridHard(); // Reset
+  // Global sauber machen (killt alte Timer/Listener, versteckt Kreise/Grid)
+  resetGameState();
+
+  // Reaktionszeiten für diese Session leeren
+  reactionTimes.length = 0;
 
   // UI vorbereiten
   hideCircles();
@@ -38,16 +49,16 @@ export function startGridHard() {
   gameScreen.style.display = 'block';
 
   // State initialisieren
-  state.running = true;
-  state.roundMs = START_MS;
-  state.minRoundMs = MIN_MS;
-  state.score = 0;
-  state.misses = 0;
-  state.streak = 0;
-  state.bestStreak = 0;
-  state.remaining = 30;
+  state.running      = true;
+  state.roundMs      = START_MS;
+  state.minRoundMs   = MIN_MS;
+  state.score        = 0;
+  state.misses       = 0;
+  state.streak       = 0;
+  state.bestStreak   = 0;
+  state.remaining    = 30;
   state.allowIndices = ALLOW.slice();
-  state.targetIndex = null;
+  state.targetIndex  = null;
 
   // Grid bauen
   container.innerHTML = '';
@@ -55,10 +66,12 @@ export function startGridHard() {
     const div = document.createElement('div');
     div.className = 'grid-cell';
     div.dataset.index = String(i);
-    div.addEventListener('pointerdown', onCellClick, { passive: true });
+    // managed Listener → wird beim nächsten Reset automatisch entfernt
+    addManagedListener(div, 'pointerdown', onCellClick);
     container.appendChild(div);
   }
-  window.addEventListener('keydown', onKey);
+  // Keyboard (managed)
+  addManagedListener(window, 'keydown', onKey);
 
   setText('#score', '0');
   setText('#streak', '0');
@@ -68,12 +81,13 @@ export function startGridHard() {
   nextRound(null);     // excludeSameAs = null
   startSwitchTimer();
 
-  // 30s Spielzeit
+  // 30s Spielzeit (registrieren für Reset)
   state.countdownTimer = setInterval(() => {
     state.remaining -= 1;
     setText('#timer', String(state.remaining));
     if (state.remaining <= 0) finish('timeup');
   }, 1000);
+  registerInterval(state.countdownTimer);
 }
 
 export function stopGridHard() {
@@ -82,6 +96,7 @@ export function stopGridHard() {
   state.switchTimer = null;
   state.countdownTimer = null;
 
+  // explizit Key-Listener entfernen (managed räumt ohnehin auf; doppelt schadet nicht)
   window.removeEventListener('keydown', onKey);
 
   const container = document.getElementById('grid-game');
@@ -109,12 +124,14 @@ function onCellClick(e) {
 
 function onKey(e) {
   if (!state.running) return;
-  // Numpad: alle 9 Positionen; Pfeile: Kanten, Enter/Space: Mitte
+  // Numpad-Layout auf 3x3 abbilden + QWE/ASD/ZXC als Alternative
   const map = {
     'Numpad7':0, 'Numpad8':1, 'Numpad9':2,
     'Numpad4':3, 'Numpad5':4, 'Numpad6':5,
     'Numpad1':6, 'Numpad2':7, 'Numpad3':8,
-    'ArrowUp':1, 'ArrowDown':7, 'ArrowLeft':3, 'ArrowRight':5, 'Enter':4, ' ':4
+    'KeyQ':0, 'KeyW':1, 'KeyE':2,
+    'KeyA':3, 'KeyS':4, 'KeyD':5,
+    'KeyZ':6, 'KeyX':7, 'KeyC':8
   };
   if (map[e.code] !== undefined) {
     handleSelection(map[e.code]);
@@ -130,7 +147,13 @@ function handleSelection(idx) {
   const wasTarget = (idx === state.targetIndex);
 
   if (wasTarget) {
-    // Hit-Feedback
+    // === Reaktionszeit registrieren ===
+    if (lastMoveTime) {
+      const rtSec = (Date.now() - lastMoveTime) / 1000;
+      if (rtSec >= 0 && rtSec < 10) reactionTimes.push(rtSec);
+    }
+
+    // Hit-Feedback kurz sichtbar
     cell.classList.add('hit');
     setTimeout(() => cell.classList.remove('hit'), 140);
 
@@ -138,12 +161,12 @@ function handleSelection(idx) {
     state.streak++;
     state.bestStreak = Math.max(state.bestStreak, state.streak);
 
-    // Beschleunigung
+    // Basis-Beschleunigung
     state.roundMs = Math.max(state.minRoundMs, Math.round(state.roundMs * SPEED_DECAY));
 
-    // kleine Zusatz-Boosts bei Streak-Meilensteinen
-    if (state.streak === 12 || state.streak === 25 || state.streak === 40) {
-      state.roundMs = Math.max(state.minRoundMs, Math.round(state.roundMs * 0.985)); // -1.5% extra
+    // Bonus-Boosts bei Streak-Meilensteinen
+    if (state.streak === 10 || state.streak === 25 || state.streak === 40) {
+      state.roundMs = Math.max(state.minRoundMs, Math.round(state.roundMs * 0.98)); // -2% extra
     }
 
     restartSwitchTimer();
@@ -183,7 +206,7 @@ function nextRound(excludeIndex) {
     cells[state.targetIndex].classList.remove('active');
   }
 
-  // Kandidaten: erlaubte Indizes, aber NICHT der zuletzt aktive
+  // Kandidaten: alle Indizes, aber NICHT der zuletzt aktive
   let pool = state.allowIndices;
   if (excludeIndex !== null && excludeIndex !== undefined) {
     pool = pool.filter(i => i !== excludeIndex);
@@ -195,7 +218,13 @@ function nextRound(excludeIndex) {
   state.targetIndex = pool[rnd];
 
   // aktiv markieren
-  cells[state.targetIndex]?.classList.add('active');
+  const targetCell = cells[state.targetIndex];
+  if (targetCell) {
+    targetCell.classList.add('active');
+  }
+
+  // === Spawn-Zeit für Reaktionsmessung setzen ===
+  setLastMoveTime(Date.now());
 }
 
 function startSwitchTimer() {
@@ -205,6 +234,7 @@ function startSwitchTimer() {
     const prev = state.targetIndex;
     nextRound(prev); // nie gleiche Zelle wie vorher
   }, state.roundMs);
+  registerInterval(state.switchTimer);
 }
 
 function restartSwitchTimer() {
@@ -220,9 +250,15 @@ function setText(sel, txt) {
 function finish(reason) {
   if (!state.running) return;
   stopGridHard();
-  const detail = {
-    reason, score: state.score, misses: state.misses,
-    bestStreak: state.bestStreak, duration: 30, difficulty: 'hard'
-  };
-  window.dispatchEvent(new CustomEvent('gridmode:finished', { detail }));
+  window.dispatchEvent(new CustomEvent('gridmode:finished', {
+    detail: {
+      reason,
+      score: state.score,
+      misses: state.misses,
+      bestStreak: state.bestStreak,
+      duration: 30,
+      difficulty: 'hard'
+      // Reaktionszeiten liegen global in core.reactionTimes – Game-Over nutzt sie für Ø.
+    }
+  }));
 }
