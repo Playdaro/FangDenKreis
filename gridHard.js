@@ -11,9 +11,9 @@
 import { reactionTimes, lastMoveTime, setLastMoveTime } from './core.js';
 import { resetGameState, addManagedListener, registerInterval } from './reset.js';
 
-const START_MS    = 1000;  // Startdauer je Ziel
-const MIN_MS      = 600;   // nie schneller als 0.6s
-const SPEED_DECAY = 0.988; // ~1.2% schneller pro Treffer
+const START_MS    = 700;  // Startdauer je Ziel
+const MIN_MS      = 450;   // nie schneller als 0.45s
+const SPEED_DECAY = 0.99426;
 
 let state = {
   running: false,

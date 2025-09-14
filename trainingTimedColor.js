@@ -99,13 +99,19 @@ function levelIfNeeded() {
   saveProgress(trainXP, trainLevel);
 }
 
-/* ========= TTS ========= */
+// TTS-Wrapper: sagt "Lila" statt "Violett"
 function speak(text) {
+  if (!text) return;
+  // Nur die Sprachausgabe umbiegen – Logik/Datensätze bleiben "Violett"
+  if (String(text).toLowerCase() === 'violett') text = 'Lila';
+
   if ('speechSynthesis' in window) {
     const msg = new SpeechSynthesisUtterance(text);
+    msg.lang = 'de-DE'; // bessere deutsche Aussprache
     window.speechSynthesis.speak(msg);
   }
 }
+
 
 /* ========= Runden-Logik ========= */
 function spawnRound() {

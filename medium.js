@@ -37,6 +37,9 @@ import {
   baseEndGame, // falls nicht exportiert -> in core.js `export { baseEndGame };`
 } from './core.js';
 
+// Stats: Session-Start kommt aus stats.js
+import { beginSession } from './stats.js';
+
 // Reset/Registry aus reset.js
 import {
   resetGameState,
@@ -46,23 +49,36 @@ import {
 
 import { loadPersistedBestStreak } from './core.js';
 
-// ---- EndGame Wrapper (Persistenz persönlicher Best-Streak) ----
+// ---- EndGame Wrapper (Persistenz persönlicher Best-Streak + VISUAL-Event) ----
 function endGameWithPersist() {
   baseEndGame();
 
-  if (!playerName) return;
+  if (playerName) {
+    const key = `bestStreak_${playerName}`;
+    const old = +localStorage.getItem(key) || 0;
+    if (bestStreak > old) {
+      localStorage.setItem(key, bestStreak);
+    }
 
-  const key = `bestStreak_${playerName}`;
-  const old = +localStorage.getItem(key) || 0;
-  if (bestStreak > old) {
-    localStorage.setItem(key, bestStreak);
+    const persistedEl = document.getElementById('final-persisted-best-streak');
+    if (persistedEl) {
+      const persisted = +localStorage.getItem(key) || 0;
+      persistedEl.textContent = persisted;
+    }
   }
 
-  const persistedEl = document.getElementById('final-persisted-best-streak');
-  if (persistedEl) {
-    const persisted = +localStorage.getItem(key) || 0;
-    persistedEl.textContent = persisted;
-  }
+  // === NEU (2b): Event für main.js feuern ===
+  window.dispatchEvent(new CustomEvent('visualmode:finished', {
+    detail: {
+      reason: 'ended',
+      score,
+      misses,
+      bestStreak,
+      duration: MODE_CONFIG?.medium?.durationSec ?? 30,
+      difficulty: 'medium',
+      modeId: 'visual-medium'
+    }
+  }));
 }
 
 // ---- Event Handler ----
@@ -102,6 +118,9 @@ export function startMediumMode() {
   startScreen.style.display    = 'none';
   gameOverScreen.style.display = 'none';
   gameScreen.style.display     = 'block';
+
+  // 3a) Session für Stats starten (Spielzeit/HPM/Aggregate)
+  beginSession({ modeGroup: 'visual', modeId: 'visual-medium', difficulty: 'medium' });
 
   // 4) Buttons/DOM-Refs
   const restartButton  = document.getElementById('restart-button');

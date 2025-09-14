@@ -118,7 +118,7 @@ function renderStatsModal() {
   }
 
   // Spielzeit: heute & 7 Tage
-  const todayKey = (new Date()).toISOString().slice(0,10); // YYYY-MM-DD lokal reicht hier grob
+  const todayKey = (new Date()).toISOString().slice(0,10); // YYYY-MM-DD
   const todaySec = play?.byDay?.[todayKey]?.seconds || 0;
   let sevenDays = 0;
   if (play?.byDay) {
@@ -188,6 +188,37 @@ function initStatsModalWiring() {
   });
 }
 
+/* =======================
+   Stats: Persist-Guard (De-Dupe)
+   ======================= */
+const __persistGuard = { key: '', ts: 0 };
+function persistOnce(payload) {
+  // Name auffüllen
+  payload.playerName = payload.playerName || (playerName || localStorage.getItem('lastPlayerName') || '');
+
+  // Dauer vereinheitlichen
+  if (payload.duration == null && payload.durationSec != null) {
+    payload.duration = payload.durationSec;
+  }
+
+  // „Looser“ Signatur: ignoriert modeGroup/modeId → fängt doppelte Events ab
+  const sig = [
+    payload.score ?? 0,
+    payload.misses ?? 0,
+    payload.bestStreak ?? 0,
+    payload.duration ?? 0
+  ].join('|');
+
+  const now = Date.now();
+  if (__persistGuard.key === sig && (now - __persistGuard.ts) < 1500) {
+    return; // Duplikat innerhalb 1.5s ignorieren
+  }
+  __persistGuard.key = sig;
+  __persistGuard.ts  = now;
+
+  // Tatsächlich speichern
+  finalizeRunAndPersist(payload);
+}
 
 // === Startscreen-Audio ===
 let startScreenAudio = null;
@@ -355,20 +386,23 @@ window.addEventListener('DOMContentLoaded', () => {
   setAudioToggleVisible(false);
   setStatsToggleVisible(false);
 
-  // Mode-Buttons: beim Start Spiel **blocken** wir Musik und stoppen sie
+  // === VISUELL (Speed-Modi) – beginSession vor dem Start (1a)
   document.getElementById('btn-easy')  ?.addEventListener('click', () => { 
     stopStartscreenMusic(); window.fdkBlockStartMusic?.(); 
     setAudioToggleVisible(false); setStatsToggleVisible(false);
+    beginSession({ modeGroup:'visual', modeId:'visual-easy', difficulty:'easy' });
     startEasyMode(); 
   });
   document.getElementById('btn-medium')?.addEventListener('click', () => { 
     stopStartscreenMusic(); window.fdkBlockStartMusic?.(); 
     setAudioToggleVisible(false); setStatsToggleVisible(false);
+    beginSession({ modeGroup:'visual', modeId:'visual-medium', difficulty:'medium' });
     startMediumMode(); 
   });
   document.getElementById('btn-hard')  ?.addEventListener('click', () => { 
     stopStartscreenMusic(); window.fdkBlockStartMusic?.(); 
     setAudioToggleVisible(false); setStatsToggleVisible(false);
+    beginSession({ modeGroup:'visual', modeId:'visual-hard', difficulty:'hard' });
     startHardMode(); 
   });
 
@@ -422,20 +456,23 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Audio-Training / andere Modi
+  // === AUDIO (Hör-Reaktion) – beginSession vor dem Start (1a)
   document.getElementById('btn-easyaudio')?.addEventListener('click', () => { 
     stopStartscreenMusic(); window.fdkBlockStartMusic?.(); 
     setAudioToggleVisible(false); setStatsToggleVisible(false);
+    beginSession({ modeGroup:'audio', modeId:'audio-easy', difficulty:'easy' });
     startEasyAudioColorMode(); 
   });
   document.getElementById('btn-mediaudio')?.addEventListener('click', () => { 
     stopStartscreenMusic(); window.fdkBlockStartMusic?.(); 
     setAudioToggleVisible(false); setStatsToggleVisible(false);
+    beginSession({ modeGroup:'audio', modeId:'audio-medium', difficulty:'medium' });
     startMediumAudioColorMode(); 
   });
   document.getElementById('btn-hardaudio')?.addEventListener('click', () => { 
     stopStartscreenMusic(); window.fdkBlockStartMusic?.(); 
     setAudioToggleVisible(false); setStatsToggleVisible(false);
+    beginSession({ modeGroup:'audio', modeId:'audio-hard', difficulty:'hard' });
     startHardAudioColorMode(); 
   });
   document.getElementById('btn-timedtrain')?.addEventListener('click', () => { 
@@ -632,16 +669,19 @@ function startGridHardFlow()   {
 
 // Ende-Flow vom Grid-Modus (30s vorbei)
 window.addEventListener('gridmode:finished', (ev) => {
-  const { score, misses, bestStreak } = ev.detail || {};
+  const { score, misses, bestStreak, duration = 30, difficulty } = ev.detail || {};
 
-  // Run in localStorage speichern (inkl. Spielzeit/Ø/Median/HPM)
-  finalizeRunAndPersist({
+  // Run speichern – inkl. Mode-Metadaten
+  persistOnce({
     score,
     misses,
     bestStreak,
-    reactionTimes, // kommt aus core.js (Import vorhanden)
-    playerName: (playerName || localStorage.getItem('lastPlayerName') || '')
-    // durationSec: ev.detail?.duration  // optional; wenn weggelassen, wird tsStart genutzt
+    reactionTimes,
+    playerName: (playerName || localStorage.getItem('lastPlayerName') || ''),
+    durationSec: duration,
+    modeGroup: 'grid',
+    modeId: 'grid-' + (difficulty || lastGridDifficulty || ''),
+    difficulty: (difficulty || lastGridDifficulty || '')
   });
 
   // Screens umschalten
@@ -676,7 +716,95 @@ window.addEventListener('gridmode:finished', (ev) => {
   const name = playerName || localStorage.getItem('lastPlayerName') || '';
   setText(['final-player','final-player-name'], name);
 
-  // Ø Reaktionszeit aus core.reactionTimes
+  // Ø Reaktionszeit
+  let avgSec = 0;
+  if (Array.isArray(reactionTimes) && reactionTimes.length > 0) {
+    const sum = reactionTimes.reduce((a, b) => a + b, 0);
+    avgSec = sum / reactionTimes.length;
+  }
+  setText(['final-reaction-time','final-reaction','final-avg-reaction'],
+          (avgSec ? avgSec.toFixed(2) : '0') + ' s');
+});
+
+// VISUELLES TRAINING (Easy/Medium/Hard)
+window.addEventListener('visualmode:finished', (ev) => {
+  const { score, misses, bestStreak, duration, difficulty, modeId } = ev.detail || {};
+
+  persistOnce({
+    score,
+    misses,
+    bestStreak,
+    reactionTimes,
+    playerName: (playerName || localStorage.getItem('lastPlayerName') || ''),
+    durationSec: duration,
+    modeGroup: 'visual',
+    modeId,
+    difficulty
+  });
+
+  const gameScreen = document.getElementById('game-screen');
+  const overScreen = document.getElementById('game-over-screen');
+  if (gameScreen) gameScreen.style.display = 'none';
+  if (overScreen) overScreen.style.display = 'block';
+  window.fdkAllowStartMusic?.();
+
+  const setText = (ids, val) => { for (const id of ids) { const el = document.getElementById(id); if (el) { el.textContent = val; return true; } } return false; };
+
+  setText(['final-score'], String(score ?? 0));
+  setText(['final-misses'], String(misses ?? 0));
+  setText(['final-persisted-best-streak','final-best-streak'], String(bestStreak ?? 0));
+
+  const attempts = (score ?? 0) + (misses ?? 0);
+  const acc = attempts > 0 ? Math.round((score / attempts) * 100) : 0;
+  setText(['final-accuracy'], acc + '%');
+
+  const name = playerName || localStorage.getItem('lastPlayerName') || '';
+  setText(['final-player','final-player-name'], name);
+
+  let avgSec = 0;
+  if (Array.isArray(reactionTimes) && reactionTimes.length > 0) {
+    const sum = reactionTimes.reduce((a, b) => a + b, 0);
+    avgSec = sum / reactionTimes.length;
+  }
+  setText(['final-reaction-time','final-reaction','final-avg-reaction'],
+          (avgSec ? avgSec.toFixed(2) : '0') + ' s');
+});
+
+// AUDIO CHALLENGE (Easy/Medium/Hard)
+window.addEventListener('audiomode:finished', (ev) => {
+  const { score, misses, bestStreak, duration, difficulty, modeId } = ev.detail || {};
+
+  persistOnce({
+    score,
+    misses,
+    bestStreak,
+    reactionTimes,
+    playerName: (playerName || localStorage.getItem('lastPlayerName') || ''),
+    durationSec: duration,
+    modeGroup: 'audio',
+    modeId,
+    difficulty
+  });
+
+  const gameScreen = document.getElementById('game-screen');
+  const overScreen = document.getElementById('game-over-screen');
+  if (gameScreen) gameScreen.style.display = 'none';
+  if (overScreen) overScreen.style.display = 'block';
+  window.fdkAllowStartMusic?.();
+
+  const setText = (ids, val) => { for (const id of ids) { const el = document.getElementById(id); if (el) { el.textContent = val; return true; } } return false; };
+
+  setText(['final-score'], String(score ?? 0));
+  setText(['final-misses'], String(misses ?? 0));
+  setText(['final-persisted-best-streak','final-best-streak'], String(bestStreak ?? 0));
+
+  const attempts = (score ?? 0) + (misses ?? 0);
+  const acc = attempts > 0 ? Math.round((score / attempts) * 100) : 0;
+  setText(['final-accuracy'], acc + '%');
+
+  const name = playerName || localStorage.getItem('lastPlayerName') || '';
+  setText(['final-player','final-player-name'], name);
+
   let avgSec = 0;
   if (Array.isArray(reactionTimes) && reactionTimes.length > 0) {
     const sum = reactionTimes.reduce((a, b) => a + b, 0);

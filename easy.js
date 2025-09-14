@@ -37,7 +37,10 @@ import {
   baseEndGame, // falls nicht exportiert -> in core.js `export { baseEndGame };`
 } from './core.js';
 
-// ⚠️ NEU: Reset/Registry-Funktionen kommen aus reset.js, NICHT aus core.js
+// ⚠️ beginSession kommt aus stats.js (nicht core.js)
+import { beginSession } from './stats.js';
+
+// Reset/Registry-Funktionen
 import {
   resetGameState,
   addManagedListener,
@@ -46,25 +49,38 @@ import {
 
 import { loadPersistedBestStreak } from './core.js';
 
-// ---- EndGame Wrapper (nur für Persistenz persönlicher Best-Streak) ----
+// ---- EndGame Wrapper (Persistenz persönlicher Best-Streak + VISUAL-Event) ----
 function endGameWithPersist() {
   // Basis-Auswertung (setzt u.a. finalBestStreak = Run-Bestwert)
   baseEndGame();
 
-  if (!playerName) return;
+  if (playerName) {
+    const key = `bestStreak_${playerName}`;
+    const old = +localStorage.getItem(key) || 0;
+    if (bestStreak > old) {
+      localStorage.setItem(key, bestStreak);
+    }
 
-  const key = `bestStreak_${playerName}`;
-  const old = +localStorage.getItem(key) || 0;
-  if (bestStreak > old) {
-    localStorage.setItem(key, bestStreak);
+    // Anzeige im Game-Over Screen (persönlicher Rekord – nach Speicherung)
+    const persistedEl = document.getElementById('final-persisted-best-streak');
+    if (persistedEl) {
+      const persisted = +localStorage.getItem(key) || 0;
+      persistedEl.textContent = persisted;
+    }
   }
 
-  // Anzeige im Game-Over Screen (persönlicher Rekord – nach Speicherung)
-  const persistedEl = document.getElementById('final-persisted-best-streak');
-  if (persistedEl) {
-    const persisted = +localStorage.getItem(key) || 0;
-    persistedEl.textContent = persisted;
-  }
+  // === Event für main.js (Stats + Game-Over-Befüllung) ===
+  window.dispatchEvent(new CustomEvent('visualmode:finished', {
+    detail: {
+      reason: 'ended',
+      score,
+      misses,
+      bestStreak,
+      duration: MODE_CONFIG?.easy?.durationSec ?? 30,
+      difficulty: 'easy',
+      modeId: 'visual-easy'
+    }
+  }));
 }
 
 // ---- Event Handler ----
@@ -104,6 +120,9 @@ export function startEasyMode() {
   startScreen.style.display    = 'none';
   gameOverScreen.style.display = 'none';
   gameScreen.style.display     = 'block';
+
+  // 3a) Session für Stats starten (für Spielzeit/HPM/Aggregate)
+  beginSession({ modeGroup: 'visual', modeId: 'visual-easy', difficulty: 'easy' });
 
   // 4) Buttons/DOM-Refs
   const restartButton  = document.getElementById('restart-button');

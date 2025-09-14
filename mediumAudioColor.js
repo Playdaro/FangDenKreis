@@ -26,7 +26,9 @@ import {
   baseEndGame,
   startCountdown,
   // Timer-IDs (werden nach startCountdown gesetzt)
-  countdownInterval
+  countdownInterval,
+  // OPTIONAL: wenn du die echte Miss-Zahl brauchst
+  misses
 } from './core.js';
 
 import {
@@ -34,6 +36,9 @@ import {
   addManagedListener,
   registerInterval
 } from './reset.js';
+
+// Stats (Session-Start für Spielzeit/HPM/Aggregate)
+import { beginSession } from './stats.js';
 
 // Farbpalette
 const COLORS = [
@@ -46,13 +51,19 @@ const COLORS = [
 
 let correctColor;
 
-// TTS
+// TTS-Wrapper: sagt "Lila" statt "Violett"
 function speak(text) {
+  if (!text) return;
+  // Nur die Sprachausgabe umbiegen – Logik/Datensätze bleiben "Violett"
+  if (String(text).toLowerCase() === 'violett') text = 'Lila';
+
   if ('speechSynthesis' in window) {
     const msg = new SpeechSynthesisUtterance(text);
+    msg.lang = 'de-DE'; // bessere deutsche Aussprache
     window.speechSynthesis.speak(msg);
   }
 }
+
 
 // 3 Kreise spawnen + Farbe ansagen
 function spawnCircles() {
@@ -104,7 +115,23 @@ function handleMissClick(e) {
 
 // EndGame-Wrapper
 function endGameAudioColorMedium() {
+  // Standardisierte Endauswertung (füllt deine Game-Over-UI via baseEndGame)
   baseEndGame();
+
+  // === Event für main.js (Stats + Game-Over-Befüllung) ===
+  window.dispatchEvent(new CustomEvent('audiomode:finished', {
+    detail: {
+      reason: 'ended',
+      // Score aus Anzeige lesen (oder: importiere "score" aus core.js, wenn du willst)
+      score: Number(scoreDisplay.textContent) || 0,
+      // echte Misses aus core.js (wir importieren "misses" oben)
+      misses: Number(misses ?? 0),
+      bestStreak: 0,                 // Audio-Color hat aktuell keine Streak-Logik
+      duration: 30,
+      difficulty: 'medium',
+      modeId: 'audio-medium'
+    }
+  }));
 }
 
 export function startMediumAudioColorMode() {
@@ -126,6 +153,17 @@ export function startMediumAudioColorMode() {
   startScreen.style.display    = 'none';
   gameOverScreen.style.display = 'none';
   gameScreen.style.display     = 'block';
+
+  // 3b) Startscreen-Musik stoppen & blocken + Audio/Stats-Buttons ausblenden
+  window.stopStartscreenMusic?.();
+  window.fdkBlockStartMusic?.();
+  const audioToggle = document.getElementById('start-audio-toggle');
+  if (audioToggle) audioToggle.style.display = 'none';
+  const statsToggle = document.getElementById('stats-toggle');
+  if (statsToggle) statsToggle.style.display = 'none';
+
+  // === NEU: Session für Stats beginnen (Spielzeit/HPM/Aggregate)
+  beginSession({ modeGroup: 'audio', modeId: 'audio-medium', difficulty: 'medium' });
 
   // 4) Listener (managed)
   if (circle)  addManagedListener(circle,  'click', handleCircleClick);
