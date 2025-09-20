@@ -9,50 +9,48 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 
-<!-- Stats-Modal -->
-<div id="stats-modal" class="modal" style="display:none;">
-  <div class="modal-panel">
-    <button class="modal-close" aria-label="Schließen">×</button>
+<body>
+  <!-- Stats-Modal (verschoben INS <body>) -->
+  <div id="stats-modal" class="modal" style="display:none;">
+    <div class="modal-panel">
+      <button class="modal-close" aria-label="Schließen">×</button>
 
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="now">Jetzt</button>
-      <button class="tab-btn" data-tab="history">Historie</button>
-    </div>
-
-    <div class="tab-content" id="stats-tab-now">
-      <div class="stat-row"><span>Letzter Modus</span><strong id="s-last-mode">–</strong></div>
-      <div class="stat-row"><span>Punkte</span><strong id="s-score">0</strong></div>
-      <div class="stat-row"><span>Trefferquote</span><strong id="s-acc">0%</strong></div>
-      <div class="stat-row"><span>Ø Reaktionszeit</span><strong id="s-avg">0 s</strong></div>
-      <div class="stat-row"><span>Median RT</span><strong id="s-med">0 s</strong></div>
-      <div class="stat-row"><span>Best-Streak</span><strong id="s-beststreak">0</strong></div>
-      <div class="stat-row"><span>Hits/Minute</span><strong id="s-hpm">0</strong></div>
-      <div class="stat-row"><span>Spielzeit (Run)</span><strong id="s-duration">0 s</strong></div>
-      <div class="stat-row"><span>Spielzeit heute</span><strong id="s-today">0 s</strong></div>
-      <div class="stat-row"><span>7 Tage gesamt</span><strong id="s-7d">0 s</strong></div>
-    </div>
-
-    <div class="tab-content" id="stats-tab-history" style="display:none;">
-      <div class="best-grid">
-        <div><small>Highscore (global)</small><strong id="b-bestscore">0</strong></div>
-        <div><small>Längste Session</small><strong id="b-longest">0 s</strong></div>
-        <div><small>Bester Ø-RT</small><strong id="b-avg">–</strong></div>
-        <div><small>Beste Quote</small><strong id="b-acc">–</strong></div>
-        <div><small>Beste HPM</small><strong id="b-hpm">–</strong></div>
-        <div><small>Tages-Streak</small><strong id="b-streak">0</strong></div>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="now">Jetzt</button>
+        <button class="tab-btn" data-tab="history">Historie</button>
       </div>
 
-      <h4>Letzte 5 Runden</h4>
-      <table class="stats-table" id="runs-table">
-        <thead><tr><th>Datum</th><th>Modus</th><th>Score</th><th>ØRT</th><th>Quote</th><th>Dauer</th></tr></thead>
-        <tbody></tbody>
-      </table>
+      <div class="tab-content" id="stats-tab-now">
+        <div class="stat-row"><span>Letzter Modus</span><strong id="s-last-mode">–</strong></div>
+        <div class="stat-row"><span>Punkte</span><strong id="s-score">0</strong></div>
+        <div class="stat-row"><span>Trefferquote</span><strong id="s-acc">0%</strong></div>
+        <div class="stat-row"><span>Ø Reaktionszeit</span><strong id="s-avg">0 s</strong></div>
+        <div class="stat-row"><span>Median RT</span><strong id="s-med">0 s</strong></div>
+        <div class="stat-row"><span>Best-Streak</span><strong id="s-beststreak">0</strong></div>
+        <div class="stat-row"><span>Hits/Minute</span><strong id="s-hpm">0</strong></div>
+        <div class="stat-row"><span>Spielzeit (Run)</span><strong id="s-duration">0 s</strong></div>
+        <div class="stat-row"><span>Spielzeit heute</span><strong id="s-today">0 s</strong></div>
+        <div class="stat-row"><span>7 Tage gesamt</span><strong id="s-7d">0 s</strong></div>
+      </div>
+
+      <div class="tab-content" id="stats-tab-history" style="display:none;">
+        <div class="best-grid">
+          <div><small>Highscore (global)</small><strong id="b-bestscore">0</strong></div>
+          <div><small>Längste Session</small><strong id="b-longest">0 s</strong></div>
+          <div><small>Bester Ø-RT</small><strong id="b-avg">–</strong></div>
+          <div><small>Beste Quote</small><strong id="b-acc">–</strong></div>
+          <div><small>Beste HPM</small><strong id="b-hpm">–</strong></div>
+          <div><small>Tages-Streak</small><strong id="b-streak">0</strong></div>
+        </div>
+
+        <h4>Letzte 5 Runden</h4>
+        <table class="stats-table" id="runs-table">
+          <thead><tr><th>Datum</th><th>Modus</th><th>Score</th><th>ØRT</th><th>Quote</th><th>Dauer</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
   </div>
-</div>
-
-
-<body>
 
   <!-- Info / Einleitung -->
   <div id="info-screen">
@@ -100,6 +98,11 @@
         <!-- NEU: Dritter Modus-Button -->
         <div>
           <button id="btn-grid">Richtungs-Training (3×3 Grid)</button>
+        </div>
+
+        <!-- NEU: Memory-Button (eingefügt in die mode-buttons) -->
+        <div>
+          <button id="btn-memory">Gedächtnis-Training (Simon Sagt)</button>
         </div>
       </div>
     </div>
@@ -249,6 +252,20 @@
     <button id="gameover-back-button">Zurück zum Start</button>
   </div>
 
+  <!-- Modal: Simon Sagt (bleibt erhalten) -->
+  <div id="memory-modal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="memory-title" aria-hidden="true">
+    <div class="modal-content">
+      <button class="modal-close" aria-label="Schließen">&times;</button>
+      <h2 id="memory-title">Gedächtnis-Training – Simon Sagt</h2>
+      <p>Merke dir die Abfolge der aufleuchtenden Felder (3×3) und klicke sie in derselben Reihenfolge an. Die Sequenz wird nach jeder richtigen Runde länger.</p>
+
+      <!-- Geänderter Button‑Bereich -->
+      <div class="button-row">
+        <button id="btn-simon-easy"   type="button">Leicht</button>
+        <button id="btn-simon-medium" type="button">Mittel</button>
+        <button id="btn-simon-hard"   type="button">Schwer</button>
+      </div>
+    </div>
   </div>
 
   <!-- Hauptskript (importiert alle Module) -->

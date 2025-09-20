@@ -1,2 +1,6 @@
 # Ignoriere die .env-Datei, um API-Schlüssel und andere sensible Daten zu schützen
 .env
+.env.local
+.env.*
+!env.example
+

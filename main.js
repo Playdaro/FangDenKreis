@@ -21,6 +21,13 @@ import { startGridEasy,   stopGridEasy }   from './gridEasy.js';
 import { startGridMedium, stopGridMedium } from './gridMedium.js';
 import { startGridHard,   stopGridHard }   from './gridHard.js';
 
+
+import { startSimon } from './simonBase.js';
+// NEUE Imports für Simon-Says Varianten
+import { startSimonEasy }   from './simonEasy.js';
+import { startSimonMedium } from './simonMedium.js';
+import { startSimonHard }   from './simonHard.js';
+
 // === Merker für "Weiter spielen" ===
 let lastModeType = null;        // 'grid' | null (kannst du später für andere Modi erweitern)
 let lastGridDifficulty = null;  // 'easy' | 'medium' | 'hard'
@@ -590,7 +597,51 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Grid-Modal-Logik
+  // === MEMORY (Simon Sagt) – HIER EINFÜGEN ===
+  const memoryModal   = document.getElementById('memory-modal');
+  const btnMemory     = document.getElementById('btn-memory');
+  const btnSimonEasy  = document.getElementById('btn-simon-easy');
+  const btnSimonMed   = document.getElementById('btn-simon-medium');
+  const btnSimonHard  = document.getElementById('btn-simon-hard');
+
+  btnMemory?.addEventListener('click', () => {
+    if (memoryModal) {
+      memoryModal.style.display = 'block';
+      memoryModal.setAttribute('aria-hidden','false');
+    }
+  });
+  memoryModal?.querySelector('.modal-close')?.addEventListener('click', () => {
+    if (memoryModal) {
+      memoryModal.style.display = 'none';
+      memoryModal.setAttribute('aria-hidden','true');
+    }
+  });
+  memoryModal?.addEventListener('click', (e) => {
+    if (e.target === memoryModal) {
+      memoryModal.style.display = 'none';
+      memoryModal.setAttribute('aria-hidden','true');
+    }
+  });
+
+  function startSimonFlow(variant, difficulty, modeId) {
+    if (memoryModal) { memoryModal.style.display = 'none'; memoryModal.setAttribute('aria-hidden','true'); }
+    if (typeof stopStartscreenMusic === 'function') stopStartscreenMusic();
+    window.fdkBlockStartMusic?.();
+    if (typeof setAudioToggleVisible === 'function') setAudioToggleVisible(false);
+    if (typeof setStatsToggleVisible === 'function') setStatsToggleVisible(false);
+    if (typeof prepareGridScreen === 'function') prepareGridScreen();
+
+    if (typeof beginSession === 'function') {
+      beginSession({ modeGroup:'memory', modeId, difficulty });
+    }
+    if (typeof variant === 'function') variant();
+  }
+
+  btnSimonEasy?.addEventListener('click',   () => startSimonFlow(startSimonEasy,   'easy',   'memory-simon-easy'));
+  btnSimonMed ?.addEventListener('click',   () => startSimonFlow(startSimonMedium, 'medium', 'memory-simon-medium'));
+  btnSimonHard?.addEventListener('click',   () => startSimonFlow(startSimonHard,   'hard',   'memory-simon-hard'));
+
+  // === Grid-Modal-Logik (weiter im File) ===
   const btnGrid   = document.getElementById('btn-grid');
   const gridModal = document.getElementById('grid-modal');
   const gridClose = gridModal?.querySelector('.modal-close');
@@ -812,6 +863,62 @@ window.addEventListener('audiomode:finished', (ev) => {
   }
   setText(['final-reaction-time','final-reaction','final-avg-reaction'],
           (avgSec ? avgSec.toFixed(2) : '0') + ' s');
+});
+
+// === MEMORY (Simon Sagt) – Persist + Game Over ===
+document.addEventListener('memorymode:finished', (ev) => {
+  const d = ev?.detail || {};
+  const {
+    score = 0,
+    misses = 0,
+    bestStreak = 0,
+    duration = 30,
+    difficulty = 'normal',
+    modeId = 'memory-simon',
+    memoryMetrics
+  } = d;
+
+  if (typeof persistOnce === 'function') {
+    persistOnce({
+      modeGroup: 'memory',
+      modeId,
+      difficulty,
+      score,
+      misses,
+      bestStreak,
+      durationSec: duration,
+      reactionTimes: [], // leave empty for memory mode
+      // --- NEU:
+      recallAvgPerItemSec: memoryMetrics?.recallAvgPerItemSec ?? null,
+      itemsPerSec:         memoryMetrics?.itemsPerSec ?? null,
+      playerName: (typeof playerName !== 'undefined' ? playerName : (localStorage.getItem('lastPlayerName') || ''))
+    });
+  }
+
+  // Game-Over UI wie bei den anderen Modi
+  const gameScreen = document.getElementById('game-screen');
+  const overScreen = document.getElementById('game-over-screen');
+  if (gameScreen) gameScreen.style.display = 'none';
+  if (overScreen) overScreen.style.display = 'block';
+  window.fdkAllowStartMusic?.();
+
+  const setText = (ids, val) => { for (const id of ids) { const el = document.getElementById(id); if (el) { el.textContent = val; return true; } } return false; };
+
+  setText(['final-score'], String(score));
+  setText(['final-misses'], String(misses));
+  setText(['final-persisted-best-streak','final-best-streak'], String(bestStreak));
+
+  const attempts = score + misses;
+  const acc = attempts > 0 ? Math.round((score / attempts) * 100) : 0;
+  setText(['final-accuracy'], acc + '%');
+
+  const name = (typeof playerName !== 'undefined' ? playerName : (localStorage.getItem('lastPlayerName') || ''));
+  setText(['final-player','final-player-name'], name);
+
+  // Ø Eingabe/Item anzeigen statt klassischer Ø-RT
+  const perItem = memoryMetrics?.recallAvgPerItemSec ?? 0;
+  const txt = perItem ? perItem.toFixed(2) + ' s/Item' : '–';
+  setText(['final-reaction-time','final-reaction','final-avg-reaction'], txt);
 });
 
 /**
