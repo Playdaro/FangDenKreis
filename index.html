@@ -100,6 +100,11 @@
           <button id="btn-grid">Richtungs-Training (3×3 Grid)</button>
         </div>
 
+        <!-- NEU: GridTiming Button -->
+        <div>
+          <button id="btn-gridtiming">Timing-Training (Trefferfenster)</button>
+        </div>
+
         <!-- NEU: Memory-Button (eingefügt in die mode-buttons) -->
         <div>
           <button id="btn-memory">Gedächtnis-Training (Simon Sagt)</button>
@@ -154,6 +159,20 @@
           <button id="btn-grid-easy">Leicht (nur linke/rechte Spalte – inkl. Ecken)</button>
           <button id="btn-grid-medium">Mittel (Oben/Links/Rechts/Unten)</button>
           <button id="btn-grid-hard">Schwer (Alle 9 Felder)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEU: GridTiming-Modal -->
+    <div id="gridtiming-modal" class="modal-overlay" style="display:none;">
+      <div class="modal-content">
+        <button class="modal-close">&times;</button>
+        <h2>Timing-Training (Trefferfenster)</h2>
+        <p>Klicke das Feld genau im richtigen Zeitfenster. Zu früh/zu spät = Miss.</p>
+        <div class="button-row">
+          <button id="btn-gridtiming-easy">Leicht</button>
+          <button id="btn-gridtiming-medium">Mittel</button>
+          <button id="btn-gridtiming-hard">Schwer</button>
         </div>
       </div>
     </div>

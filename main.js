@@ -20,6 +20,9 @@ import { startTrainingTimedColor }   from './trainingTimedColor.js';
 import { startGridEasy,   stopGridEasy }   from './gridEasy.js';
 import { startGridMedium, stopGridMedium } from './gridMedium.js';
 import { startGridHard,   stopGridHard }   from './gridHard.js';
+import { startGridTimingEasy }   from './gridTimingEasy.js';
+import { startGridTimingMedium } from './gridTimingMedium.js';
+import { startGridTimingHard }   from './gridTimingHard.js';
 
 
 import { startSimon } from './simonBase.js';
@@ -658,6 +661,44 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-grid-medium')?.addEventListener('click', () => startGridMediumFlow());
   document.getElementById('btn-grid-hard')  ?.addEventListener('click', () => startGridHardFlow());
 
+  // === GRID TIMING – Modal / Buttons (füge nahe den anderen Modal-Handlers ein) ===
+  const btnGridTiming   = document.getElementById('btn-grid-timing');
+  const gridTimingModal = document.getElementById('grid-timing-modal');
+  const gridTimingClose = gridTimingModal?.querySelector('.modal-close');
+  if (btnGridTiming && gridTimingModal && gridTimingClose) {
+    btnGridTiming.addEventListener('click', () => { gridTimingModal.style.display = 'flex'; });
+    gridTimingClose.addEventListener('click', () => { gridTimingModal.style.display = 'none'; });
+    gridTimingModal.addEventListener('click', e => {
+      if (e.target === gridTimingModal) gridTimingModal.style.display = 'none';
+    });
+  }
+
+  // Difficulty-Buttons inside the grid-timing modal (if present)
+  document.getElementById('btn-grid-timing-easy')?.addEventListener('click', () => {
+    if (gridTimingModal) gridTimingModal.style.display = 'none';
+    stopStartscreenMusic(); window.fdkBlockStartMusic?.();
+    setAudioToggleVisible(false); setStatsToggleVisible(false);
+    if (typeof prepareGridScreen === 'function') prepareGridScreen();
+    if (typeof beginSession === 'function') beginSession({ modeGroup: 'gridtiming', modeId: 'grid-timing-easy', difficulty: 'easy' });
+    if (typeof startGridTimingEasy === 'function') startGridTimingEasy();
+  });
+  document.getElementById('btn-grid-timing-medium')?.addEventListener('click', () => {
+    if (gridTimingModal) gridTimingModal.style.display = 'none';
+    stopStartscreenMusic(); window.fdkBlockStartMusic?.();
+    setAudioToggleVisible(false); setStatsToggleVisible(false);
+    if (typeof prepareGridScreen === 'function') prepareGridScreen();
+    if (typeof beginSession === 'function') beginSession({ modeGroup: 'gridtiming', modeId: 'grid-timing-medium', difficulty: 'medium' });
+    if (typeof startGridTimingMedium === 'function') startGridTimingMedium();
+  });
+  document.getElementById('btn-grid-timing-hard')?.addEventListener('click', () => {
+    if (gridTimingModal) gridTimingModal.style.display = 'none';
+    stopStartscreenMusic(); window.fdkBlockStartMusic?.();
+    setAudioToggleVisible(false); setStatsToggleVisible(false);
+    if (typeof prepareGridScreen === 'function') prepareGridScreen();
+    if (typeof beginSession === 'function') beginSession({ modeGroup: 'gridtiming', modeId: 'grid-timing-hard', difficulty: 'hard' });
+    if (typeof startGridTimingHard === 'function') startGridTimingHard();
+  });
+
   // Bounce-Animation (nur wenn nicht reduced-motion)
   document.body.classList.add('use-js-bouncing');
   startDecorBouncing();
@@ -990,3 +1031,51 @@ function startDecorBouncing() {
 
   animate();
 }
+
+// GRID TIMING – Run abschließen
+document.addEventListener('gridtiming:finished', (ev) => {
+  const { score = 0, misses = 0, bestStreak = 0, duration = 60, difficulty = 'medium', modeId = 'grid-timing-medium', avgError = null } = ev.detail || {};
+
+  // persistieren
+  persistOnce({
+    score,
+    misses,
+    bestStreak,
+    reactionTimes, // falls du später z.B. Errors als "RT" nicht willst, kann man hier null übergeben
+    playerName: (playerName || localStorage.getItem('lastPlayerName') || ''),
+    durationSec: duration,
+    modeGroup: 'gridtiming',
+    modeId,
+    difficulty,
+    // optional extra Feld:
+    avgErrorMs: avgError
+  });
+
+  // Game-Screen aus, Game-Over an
+  const gameScreen = document.getElementById('game-screen');
+  const overScreen = document.getElementById('game-over-screen');
+  if (gameScreen) gameScreen.style.display = 'none';
+  if (overScreen) overScreen.style.display = 'block';
+  window.fdkAllowStartMusic?.();
+
+  // UI füllen
+  const setText = (ids, val) => { for (const id of ids) { const el = document.getElementById(id); if (el) { el.textContent = val; return true; } } return false; };
+  setText(['final-score'], String(score));
+  setText(['final-misses'], String(misses));
+  setText(['final-persisted-best-streak','final-best-streak'], String(bestStreak));
+
+  const attempts = (score ?? 0) + (misses ?? 0);
+  const acc = attempts > 0 ? Math.round((score / attempts) * 100) : 0;
+  setText(['final-accuracy'], acc + '%');
+
+  const name = playerName || localStorage.getItem('lastPlayerName') || '';
+  setText(['final-player','final-player-name'], name);
+
+  // optional: avgError anzeigen anstelle von RT
+  if (avgError != null) {
+    setText(['final-reaction','final-reaction-time','final-avg-reaction'], Math.round(avgError) + ' ms');
+  } else {
+    // Fallback: vorhandene RT-Logik
+    setText(['final-reaction-time','final-reaction','final-avg-reaction'], '–');
+  }
+});
