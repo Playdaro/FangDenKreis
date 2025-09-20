@@ -203,33 +203,31 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   position: relative;
 }
 
-/* Deutlich sichtbarer Close-Button (X) */
-.modal-close {
+/* Globales Styling für alle Modal-Schließen-Buttons (×) */
+.modal .modal-close {
   position: absolute;
-  top: 0.5rem; right: 0.75rem;
-
-  width: 40px;
-  height: 40px;
-  border-radius: 9999px;
-  border: 2px solid #fff;
-  background: #e74c3c;
-  color: #fff;
-  font-size: 22px;
+  top: 10px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 24px;
   font-weight: 700;
   line-height: 1;
-  display: grid;
-  place-items: center;
-
   cursor: pointer;
-  box-shadow: 0 3px 10px rgba(0,0,0,.25);
-  transition: transform .08s ease, filter .15s ease, box-shadow .15s ease;
-  -webkit-tap-highlight-color: transparent;
+  color: #ff3b30;                 /* ROT statt weiß */
+  transition: color .12s ease, transform .12s ease;
+  z-index: 2;
 }
-.modal-close:hover { filter: brightness(1.05); }
-.modal-close:active { transform: scale(0.96); }
-.modal-close:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px #fff, 0 0 0 6px #e74c3c;
+
+.modal .modal-close:hover {
+  color: #ff6b6b;                 /* etwas heller beim Hover */
+  transform: scale(1.1);
+}
+
+.modal .modal-close:focus-visible {
+  outline: 2px solid #ff3b30;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* Sanfter Farb-Wellen-Hintergrund für den Start-Screen */
@@ -365,3 +363,40 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .stats-table { width:100%; border-collapse:collapse; font-size:14px; }
 .stats-table th, .stats-table td { padding:6px 8px; border-bottom:1px solid #eee; text-align:left; }
 .stats-table th { color:#444; font-weight:600; }
+/* Tabs im Stats-Modal: "Jetzt" / "Historie" */
+#stats-modal .tab-btn {
+  background: transparent;
+  color: #cfd3dc;                  /* nicht mehr weiß */
+  border: 1px solid rgba(255,255,255,0.18);
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: .2px;
+  transition: background .15s ease, color .15s ease, border-color .15s ease, transform .08s ease;
+  backdrop-filter: blur(2px);
+}
+
+#stats-modal .tab-btn:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.28);
+  transform: translateY(-1px);
+}
+
+#stats-modal .tab-btn:focus-visible {
+  outline: 2px solid #4da3ff;
+  outline-offset: 2px;
+}
+
+/* Aktiver Tab farblich absetzen */
+#stats-modal .tab-btn.active {
+  background: linear-gradient(180deg, #3a7bd5, #00d2ff); /* hübsches Blau */
+  color: #0b1020;                 /* dunkler Text auf hellem Button */
+  border-color: transparent;
+}
+
+/* Optional: Container-Hintergrund etwas abdunkeln, damit Tabs besser wirken */
+#stats-modal .tabs-header {
+  background: rgba(0,0,0,0.3);
+  padding: 8px;
+  border-radius: 12px;
+}

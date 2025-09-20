@@ -127,25 +127,30 @@ function renderStatsModal() {
       .forEach(id => safeText(id, '–'));
   }
 
-  // Spielzeit: heute & 7 Tage
+  // Spielzeit: heute, 7 Tage, gesamt
   const todayKey = (new Date()).toISOString().slice(0,10); // YYYY-MM-DD
   const todaySec = play?.byDay?.[todayKey]?.seconds || 0;
+
   let sevenDays = 0;
+  let totalSec  = 0;
   if (play?.byDay) {
-    const days = Object.keys(play.byDay).sort().slice(-7);
-    sevenDays = days.reduce((sum, d) => sum + (play.byDay[d]?.seconds || 0), 0);
+    const keys = Object.keys(play.byDay).sort(); // chronologisch
+    totalSec = keys.reduce((sum, k) => sum + (play.byDay[k]?.seconds || 0), 0);
+    const last7 = keys.slice(-7);
+    sevenDays = last7.reduce((sum, k) => sum + (play.byDay[k]?.seconds || 0), 0);
   }
   safeText('s-today', fmtSec(todaySec));
-  safeText('s-7d', fmtSec(sevenDays));
+  safeText('s-7d',    fmtSec(sevenDays));
+  safeText('s-total', fmtSec(totalSec)); // <- NEU
 
   // Bestwerte (global)
   const g = bests?.global || {};
   safeText('b-bestscore', String(g.bestScore ?? 0));
-  safeText('b-longest', fmtSec(g.longestSessionSec || 0));
-  safeText('b-avg', g.bestAvgRt != null ? fmtRt(g.bestAvgRt) : '–');
-  safeText('b-acc', g.bestAccuracy != null ? fmtPct(g.bestAccuracy) : '–');
-  safeText('b-hpm', g.bestHpm != null ? (g.bestHpm.toFixed(1)) : '–');
-  safeText('b-streak', String(play?.dayStreak || 0));
+  safeText('b-longest',   fmtSec(g.longestSessionSec || 0));
+  safeText('b-avg',       g.bestAvgRt != null ? fmtRt(g.bestAvgRt) : '–');
+  safeText('b-acc',       g.bestAccuracy != null ? fmtPct(g.bestAccuracy) : '–');
+  safeText('b-hpm',       g.bestHpm != null ? (g.bestHpm.toFixed(1)) : '–');
+  safeText('b-streak',    String(play?.dayStreak || 0));
 
   // Letzte 5 Runden
   const tbody = document.querySelector('#runs-table tbody');
@@ -167,6 +172,7 @@ function renderStatsModal() {
     });
   }
 }
+
 
 function openStatsModal() {
   const m = document.getElementById('stats-modal');
