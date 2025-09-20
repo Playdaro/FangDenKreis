@@ -661,10 +661,11 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-grid-medium')?.addEventListener('click', () => startGridMediumFlow());
   document.getElementById('btn-grid-hard')  ?.addEventListener('click', () => startGridHardFlow());
 
-  // === GRID TIMING – Modal / Buttons (füge nahe den anderen Modal-Handlers ein) ===
-  const btnGridTiming   = document.getElementById('btn-grid-timing');
-  const gridTimingModal = document.getElementById('grid-timing-modal');
+  // === GRID TIMING – Modal / Buttons ===
+  const btnGridTiming   = document.getElementById('btn-gridtiming');
+  const gridTimingModal = document.getElementById('gridtiming-modal');
   const gridTimingClose = gridTimingModal?.querySelector('.modal-close');
+
   if (btnGridTiming && gridTimingModal && gridTimingClose) {
     btnGridTiming.addEventListener('click', () => { gridTimingModal.style.display = 'flex'; });
     gridTimingClose.addEventListener('click', () => { gridTimingModal.style.display = 'none'; });
@@ -673,31 +674,24 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Difficulty-Buttons inside the grid-timing modal (if present)
-  document.getElementById('btn-grid-timing-easy')?.addEventListener('click', () => {
+  function startGridTimingFlow(starterFn, difficulty, modeId) {
     if (gridTimingModal) gridTimingModal.style.display = 'none';
     stopStartscreenMusic(); window.fdkBlockStartMusic?.();
     setAudioToggleVisible(false); setStatsToggleVisible(false);
     if (typeof prepareGridScreen === 'function') prepareGridScreen();
-    if (typeof beginSession === 'function') beginSession({ modeGroup: 'gridtiming', modeId: 'grid-timing-easy', difficulty: 'easy' });
-    if (typeof startGridTimingEasy === 'function') startGridTimingEasy();
-  });
-  document.getElementById('btn-grid-timing-medium')?.addEventListener('click', () => {
-    if (gridTimingModal) gridTimingModal.style.display = 'none';
-    stopStartscreenMusic(); window.fdkBlockStartMusic?.();
-    setAudioToggleVisible(false); setStatsToggleVisible(false);
-    if (typeof prepareGridScreen === 'function') prepareGridScreen();
-    if (typeof beginSession === 'function') beginSession({ modeGroup: 'gridtiming', modeId: 'grid-timing-medium', difficulty: 'medium' });
-    if (typeof startGridTimingMedium === 'function') startGridTimingMedium();
-  });
-  document.getElementById('btn-grid-timing-hard')?.addEventListener('click', () => {
-    if (gridTimingModal) gridTimingModal.style.display = 'none';
-    stopStartscreenMusic(); window.fdkBlockStartMusic?.();
-    setAudioToggleVisible(false); setStatsToggleVisible(false);
-    if (typeof prepareGridScreen === 'function') prepareGridScreen();
-    if (typeof beginSession === 'function') beginSession({ modeGroup: 'gridtiming', modeId: 'grid-timing-hard', difficulty: 'hard' });
-    if (typeof startGridTimingHard === 'function') startGridTimingHard();
-  });
+    beginSession?.({ modeGroup:'gridtiming', modeId, difficulty });
+    starterFn?.();
+  }
+
+  document.getElementById('btn-gridtiming-easy')?.addEventListener('click', () =>
+    startGridTimingFlow(startGridTimingEasy, 'easy', 'grid-timing-easy')
+  );
+  document.getElementById('btn-gridtiming-medium')?.addEventListener('click', () =>
+    startGridTimingFlow(startGridTimingMedium, 'medium', 'grid-timing-medium')
+  );
+  document.getElementById('btn-gridtiming-hard')?.addEventListener('click', () =>
+    startGridTimingFlow(startGridTimingHard, 'hard', 'grid-timing-hard')
+  );
 
   // Bounce-Animation (nur wenn nicht reduced-motion)
   document.body.classList.add('use-js-bouncing');
