@@ -1,4 +1,20 @@
 // main.js – Refactor + Best-Streak-Anzeige + Modal-Logik + Dekor-Bouncing + Startscreen-Audio + Reduced-Motion / Performance-Fallback + Trainings-Intro
+// === Fremd-Fehler (Extensions) aus der Konsole filtern – optional ===
+window.addEventListener('error', (e) => {
+  const s = (e?.error?.stack || e?.message || '') + '';
+  if (s.includes('chrome-extension://')) {
+    e.preventDefault(); // rote Fehlermeldung unterdrücken
+  }
+}, true);
+
+window.addEventListener('unhandledrejection', (e) => {
+  const s = (e?.reason?.stack || e?.reason || '') + '';
+  if (s.includes('chrome-extension://')) {
+    e.preventDefault();
+  }
+}, true);
+
+
 
 import { initCore, updateBestStreakDisplay, reactionTimes,  playerName } from './core.js';
 import { beginSession, finalizeRunAndPersist, loadRuns, loadBests, loadPlaytime } from './stats.js';
@@ -30,6 +46,12 @@ import { startSimon } from './simonBase.js';
 import { startSimonEasy }   from './simonEasy.js';
 import { startSimonMedium } from './simonMedium.js';
 import { startSimonHard }   from './simonHard.js';
+
+// NEU - Shape Shift
+import { startShapeShiftEasy } from './shapeShiftEasy.js';
+import { startShapeShiftMedium } from './shapeShiftMedium.js';
+import { startShapeShiftHard } from './shapeShiftHard.js';
+
 
 // === Merker für "Weiter spielen" ===
 let lastModeType = null;        // 'grid' | null (kannst du später für andere Modi erweitern)
@@ -396,7 +418,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Audio + Stats-Button vorbereiten
   initStartscreenAudio();
-  initStatsButton();
 
   // Standard: außerhalb Startscreen erstmal verstecken
   setAudioToggleVisible(false);
@@ -421,6 +442,62 @@ window.addEventListener('DOMContentLoaded', () => {
     beginSession({ modeGroup:'visual', modeId:'visual-hard', difficulty:'hard' });
     startHardMode(); 
   });
+    // --- Shape Shift Modal ---
+  const btnShape     = document.getElementById('btn-shape');
+  const shapeModal   = document.getElementById('shape-modal');
+  const shapeClose   = shapeModal?.querySelector('.modal-close');
+  const btnShapeEasy   = document.getElementById('btn-shape-easy');
+  const btnShapeMedium = document.getElementById('btn-shape-medium');
+  const btnShapeHard   = document.getElementById('btn-shape-hard');
+
+  if (btnShape && shapeModal && shapeClose) {
+    btnShape.addEventListener('click', () => { shapeModal.style.display = 'flex'; });
+    shapeClose.addEventListener('click', () => { shapeModal.style.display = 'none'; });
+    shapeModal.addEventListener('click', e => { if (e.target === shapeModal) shapeModal.style.display = 'none'; });
+  }
+
+btnShapeEasy?.addEventListener('click', () => {
+  shapeModal.style.display = 'none';
+  stopStartscreenMusic(); window.fdkBlockStartMusic?.();
+  setAudioToggleVisible(false); setStatsToggleVisible(false);
+  beginSession({ modeGroup: 'visual', modeId: 'shape-easy', difficulty: 'easy' });
+
+  // >>> Hard-Switch: Startscreen aus, Game-Screen an
+  const ss = document.getElementById('start-screen');
+  const gs = document.getElementById('game-screen');
+  if (ss && gs) { ss.style.display = 'none'; gs.style.display = 'block'; }
+
+  startShapeShiftEasy();
+});
+
+btnShapeMedium?.addEventListener('click', () => {
+  shapeModal.style.display = 'none';
+  stopStartscreenMusic(); window.fdkBlockStartMusic?.();
+  setAudioToggleVisible(false); setStatsToggleVisible(false);
+  beginSession({ modeGroup: 'visual', modeId: 'shape-medium', difficulty: 'medium' });
+
+  const ss = document.getElementById('start-screen');
+  const gs = document.getElementById('game-screen');
+  if (ss && gs) { ss.style.display = 'none'; gs.style.display = 'block'; }
+
+  startShapeShiftMedium();
+});
+
+btnShapeHard?.addEventListener('click', () => {
+  shapeModal.style.display = 'none';
+  stopStartscreenMusic(); window.fdkBlockStartMusic?.();
+  setAudioToggleVisible(false); setStatsToggleVisible(false);
+  beginSession({ modeGroup: 'visual', modeId: 'shape-hard', difficulty: 'hard' });
+
+  const ss = document.getElementById('start-screen');
+  const gs = document.getElementById('game-screen');
+  if (ss && gs) { ss.style.display = 'none'; gs.style.display = 'block'; }
+
+  startShapeShiftHard();
+});
+
+
+
 
   // Trainingsmodus mit Intro-Modal (ersetzt direkte startTraining-Aufruf)
   const trainingBtn = document.getElementById('btn-training');
@@ -700,8 +777,9 @@ window.addEventListener('DOMContentLoaded', () => {
   );
 
   // Bounce-Animation (nur wenn nicht reduced-motion)
-  document.body.classList.add('use-js-bouncing');
-  startDecorBouncing();
+document.body.classList.add('use-js-bouncing');
+// startDecorBouncing();  // optional; besser Schritt 2 unten nutzen
+
 
   console.log('▶ main.js initialisiert (Refactor + Modals + Bouncing + Audio + Trainings-Intro + Grid-Split + Restart + Musik-Guard + Audio/Stats-Buttons sichtbar nur Startscreen)');
 });
@@ -989,12 +1067,23 @@ function startDecorBouncing() {
   const frameSkip = lowConcurrency ? 2 : 1;
 
   const circles = Array.from(container.querySelectorAll('.decor-circle')).map(el => {
-    const initialX = parseFloat(getComputedStyle(el).getPropertyValue('--left')) || Math.random() * (bounds.width - size);
-    const initialY = parseFloat(getComputedStyle(el).getPropertyValue('--top')) || Math.random() * (bounds.height - size);
+    let b = container.getBoundingClientRect();
+    if (b.width < 30 || b.height < 30) {
+      b = { width: window.innerWidth || 320, height: window.innerHeight || 240 };
+    }
+
+    const initialX = parseFloat(getComputedStyle(el).getPropertyValue('--left')) || Math.random() * Math.max(1, b.width - size);
+    const initialY = parseFloat(getComputedStyle(el).getPropertyValue('--top'))  || Math.random() * Math.max(1, b.height - size);
+
+    el.style.position = 'absolute';
     el.style.left = initialX + 'px';
     el.style.top  = initialY + 'px';
-    const vx = (Math.random() * 2 + 1) * (Math.random() < 0.5 ? 1 : -1);
-    const vy = (Math.random() * 2 + 1) * (Math.random() < 0.5 ? 1 : -1);
+
+    const sp = (Math.random() * 2 + 1);
+    let vx = sp * (Math.random() < 0.5 ? 1 : -1);
+    let vy = sp * (Math.random() < 0.5 ? 1 : -1);
+    if (Math.abs(vx) + Math.abs(vy) < 0.5) { vx += 0.6; vy += 0.6; }
+
     return { el, x: initialX, y: initialY, vx, vy };
   });
 
@@ -1002,6 +1091,13 @@ function startDecorBouncing() {
     frameCount++;
     if (frameCount % frameSkip === 0) {
       bounds = getBounds();
+
+      // Wenn der Container unsichtbar/zu klein ist, Frame überspringen
+      if (bounds.width < 30 || bounds.height < 30) {
+        requestAnimationFrame(animate);
+        return;
+      }
+
       circles.forEach(obj => {
         obj.x += obj.vx;
         obj.y += obj.vy;

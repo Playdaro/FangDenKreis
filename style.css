@@ -400,3 +400,56 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   padding: 8px;
   border-radius: 12px;
 }
+#ss-rule { user-select: none; }
+.ss-shape { cursor: pointer; transition: transform 80ms ease; }
+.ss-shape:active { transform: scale(0.95); }
+
+#game {
+  background: #1b1f2a; /* dunkler, aber nicht ganz schwarz */
+}
+
+.ss-shape {
+  box-shadow:
+    0 0 10px currentColor,     /* farbiger Glow */
+    0 0 20px rgba(0,0,0,0.5);  /* leichter Schlagschatten */
+  border: 2px solid rgba(255,255,255,0.2); /* dezenter Rahmen */
+}
+
+/* === Shape Shift – HUD & Shapes (consolidated) === */
+.ss-hud.top-right{
+  position:absolute; top:8px; right:8px;
+  font-size:14px; padding:6px 10px;
+  background:rgba(0,0,0,.35); color:#fff; border-radius:8px;
+}
+.ss-hud.miss{ animation:ss-miss 250ms ease }
+@keyframes ss-miss{0%{transform:translateX(0)}33%{transform:translateX(-3px)}66%{transform:translateX(3px)}100%{transform:translateX(0)}}
+
+/* Baseline placement for moving shapes */
+.ss-shape{ position:absolute; will-change:transform }
+
+/* 9 shapes via clip-path so background color works consistently */
+.ss-shape.circle{ border-radius:50% }
+.ss-shape.square{ border-radius:4px }
+.ss-shape.triangle{ clip-path:polygon(50% 0%,0% 100%,100% 100%) }
+.ss-shape.diamond{ clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%) }
+.ss-shape.pentagon{ clip-path:polygon(50% 0%,100% 38%,81% 100%,19% 100%,0% 38%) }
+.ss-shape.hexagon{ clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%) }
+.ss-shape.octagon{ clip-path:polygon(30% 0%,70% 0%,100% 30%,100% 70%,70% 100%,30% 100%,0% 70%,0% 30%) }
+.ss-shape.star{
+  clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
+}
+.ss-shape.heart{
+  clip-path:path('M24 7C24 3.686 21.314 1 18 1C15.879 1 13.997 2.063 12.9 3.7C11.803 2.063 9.921 1 7.8 1C4.486 1 1.8 3.686 1.8 7C1.8 13.6 12.9 21 12.9 21C12.9 21 24 13.6 24 7Z');
+  transform-origin:center;
+}
+/* HUD-Variante unter dem Streak (nicht fixed/absolute) */
+.ss-hud.under-streak{
+  position: static;            /* nimmt am normalen Flow teil */
+  display: inline-block;
+  margin: 6px 0 10px 0;
+  padding: 6px 10px;
+  background: rgba(0,0,0,.35);
+  color:#fff;
+  border-radius:8px;
+  font-size:14px;
+}
