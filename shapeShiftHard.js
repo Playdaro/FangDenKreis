@@ -8,7 +8,7 @@ export function startShapeShiftHard() {
     speedMax: 4.0,
     shapes: SHAPES.slice(0, 5),
     colors: COLORS.slice(0, 5),
-    limitMs: 10000
+    limitMs: 30000
   };
 
   startShapeShift(config);

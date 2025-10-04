@@ -442,19 +442,21 @@ window.addEventListener('DOMContentLoaded', () => {
     beginSession({ modeGroup:'visual', modeId:'visual-hard', difficulty:'hard' });
     startHardMode(); 
   });
-    // --- Shape Shift Modal ---
-  const btnShape     = document.getElementById('btn-shape');
-  const shapeModal   = document.getElementById('shape-modal');
-  const shapeClose   = shapeModal?.querySelector('.modal-close');
-  const btnShapeEasy   = document.getElementById('btn-shape-easy');
-  const btnShapeMedium = document.getElementById('btn-shape-medium');
-  const btnShapeHard   = document.getElementById('btn-shape-hard');
+// --- Shape Shift Modal ---
+const btnShape = document.getElementById('btn-shape-shift') || document.getElementById('btn-shape');
+const shapeModal = document.getElementById('shape-modal');
+const shapeClose = shapeModal?.querySelector('.modal-close');
 
-  if (btnShape && shapeModal && shapeClose) {
-    btnShape.addEventListener('click', () => { shapeModal.style.display = 'flex'; });
-    shapeClose.addEventListener('click', () => { shapeModal.style.display = 'none'; });
-    shapeModal.addEventListener('click', e => { if (e.target === shapeModal) shapeModal.style.display = 'none'; });
-  }
+const btnShapeEasy   = document.getElementById('btn-shape-easy');
+const btnShapeMedium = document.getElementById('btn-shape-medium');
+const btnShapeHard   = document.getElementById('btn-shape-hard');
+
+if (btnShape && shapeModal && shapeClose) {
+  btnShape.addEventListener('click', () => { shapeModal.style.display = 'flex'; });
+  shapeClose.addEventListener('click', () => { shapeModal.style.display = 'none'; });
+  shapeModal.addEventListener('click', e => { if (e.target === shapeModal) shapeModal.style.display = 'none'; });
+}
+
 
 btnShapeEasy?.addEventListener('click', () => {
   shapeModal.style.display = 'none';
