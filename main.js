@@ -635,26 +635,7 @@ btnShapeHard?.addEventListener('click', () => {
     });
   }
 
-  // NEU: „Weiter spielen“ → zuletzt gespielten Grid-Modus erneut starten
-  const restartBtn = document.getElementById('restart-button');
-  if (restartBtn) {
-    restartBtn.addEventListener('click', () => {
-      // Game-Over ausblenden
-      document.getElementById('game-over-screen').style.display = 'none';
-
-      if (lastModeType === 'grid') {
-        if (lastGridDifficulty === 'easy')      { startGridEasyFlow(); }
-        else if (lastGridDifficulty === 'medium'){ startGridMediumFlow(); }
-        else if (lastGridDifficulty === 'hard')  { startGridHardFlow(); }
-        else { window.fdkAllowStartMusic?.(); showStartScreen(); }
-      } else {
-        // Falls „Weiter spielen“ aus einem anderen Modus kam:
-        window.fdkAllowStartMusic?.();
-        showStartScreen();
-      }
-    });
-  }
-
+  
   // Highscore & Streak
   updateHighscoreUI();
   updateBestStreakDisplay();
@@ -778,7 +759,10 @@ btnShapeHard?.addEventListener('click', () => {
 
   // Bounce-Animation (nur wenn nicht reduced-motion)
 document.body.classList.add('use-js-bouncing');
-// startDecorBouncing();  // optional; besser Schritt 2 unten nutzen
+if (!window.__decorStarted) {
+  window.__decorStarted = true;   // verhindert Doppel-Start
+  startDecorBouncing();
+}
 
 
   console.log('▶ main.js initialisiert (Refactor + Modals + Bouncing + Audio + Trainings-Intro + Grid-Split + Restart + Musik-Guard + Audio/Stats-Buttons sichtbar nur Startscreen)');

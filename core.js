@@ -50,21 +50,25 @@ export let audioTrainingLevelDisplay, audioTrainingXPFill, audioTrainingXPAmount
 
 // core.js (ganz oben)
 
-// Trainings‑State
+// Trainings-State
 export let trainXP = 0;
 export let trainLevel = 1;
 export const XP_PER_LEVEL = 100;
-export let trainingTime = 60;               // 60 s Gesamt
-export let trainingTimerInterval = null;    // Ball‑Wechsel
-export let trainingCountdownInterval = null;// Countdown‑Timer
+export let trainingTime = 60;               // 60 s Gesamt
+export let trainingTimerInterval = null;    // Ball-Wechsel
+export let trainingCountdownInterval = null;// Countdown-Timer
 
-// DOM‑Refs für das 60 s‑UI
+// DOM-Refs für das 60 s-UI
 export let trainingTimeDisplay;
 export let trainLevelDisplay;
 export let trainXPFill;
 export let trainXPAmount;
 
-
+// === NEU: Restart-Callback für "Weiter spielen" ===
+export let currentRestart = null;
+export function setRestart(fn) {
+  currentRestart = typeof fn === 'function' ? fn : null;
+}
 
 // ---------- Modus-Konfiguration ----------
 export const MODE_CONFIG = {
@@ -430,9 +434,9 @@ export function endTraining() {
 export function resetAudioTraining() {
   audioTrainXP = 0;
   audioTrainLevel = 0;
-  if (audioTrainingLevelDisplay) audioTrainingLevelDisplay.textContent = 'Level 0';
+  if (audioTrainingLevelDisplay) audioTrainingLevelDisplay.textContent = 'Level 0';
   if (audioTrainingXPFill)       audioTrainingXPFill.style.width = '0%';
-  if (audioTrainingXPAmount)     audioTrainingXPAmount.textContent = '0 XP';
+  if (audioTrainingXPAmount)     audioTrainingXPAmount.textContent = '0 XP';
 }
 
 export function incrementAudioTrainingXP() {
@@ -442,20 +446,20 @@ export function incrementAudioTrainingXP() {
   if (audioTrainXP >= lvlCfg.requiredHits && audioTrainLevel < audioTrainLevels.length - 1) {
     audioTrainXP = 0;
     audioTrainLevel++;
-    if (audioTrainingLevelDisplay) audioTrainingLevelDisplay.textContent = 'Level ' + audioTrainLevel;
+    if (audioTrainingLevelDisplay) audioTrainingLevelDisplay.textContent = 'Level ' + audioTrainLevel;
   }
   // UI updaten
   const pct = Math.min(100, (audioTrainXP / audioTrainLevels[audioTrainLevel].requiredHits) * 100);
   if (audioTrainingXPFill)   audioTrainingXPFill.style.width   = pct + '%';
-  if (audioTrainingXPAmount) audioTrainingXPAmount.textContent = audioTrainXP + ' XP';
+  if (audioTrainingXPAmount) audioTrainingXPAmount.textContent = audioTrainXP + ' XP';
 }
 export function resetTimedTraining() {
   trainXP = 0;
   trainLevel = 1;
   trainingTime = 60;
-  if (trainLevelDisplay)   trainLevelDisplay.textContent   = 'Level 1';
+  if (trainLevelDisplay)   trainLevelDisplay.textContent   = 'Level 1';
   if (trainXPFill)         trainXPFill.style.width         = '0%';
-  if (trainXPAmount)       trainXPAmount.textContent       = '0 XP';
+  if (trainXPAmount)       trainXPAmount.textContent       = '0 XP';
   if (trainingTimeDisplay) trainingTimeDisplay.textContent = '60s';
 }
 
@@ -464,12 +468,12 @@ export function incrementTrainXP(amount = 1) {
   if (trainXP >= XP_PER_LEVEL) {
     trainXP -= XP_PER_LEVEL;
     trainLevel++;
-    if (trainLevelDisplay) trainLevelDisplay.textContent = 'Level ' + trainLevel;
+    if (trainLevelDisplay) trainLevelDisplay.textContent = 'Level ' + trainLevel;
     
   }
   const pct = Math.min(100, (trainXP / XP_PER_LEVEL) * 100);
   if (trainXPFill)   trainXPFill.style.width     = pct + '%';
-  if (trainXPAmount) trainXPAmount.textContent   = trainXP + ' XP';
+  if (trainXPAmount) trainXPAmount.textContent   = trainXP + ' XP';
 }
 
 export function startTrainingTimer() {
@@ -485,8 +489,70 @@ export function startTrainingTimer() {
   }, 1000);
 }
 
-// Endet das Training und zeigt den Game‑Over‑Screen
+// Endet das Training und zeigt den Game-Over-Screen
 export function endTimedTraining() {
   clearInterval(trainingTimerInterval);
   baseEndGame();
 }
+
+// === Game-Over Buttons einmalig und robust verdrahten ===
+(function wireGameOverButtonsOnce() {
+  const over = document.getElementById('game-over-screen');
+  if (!over || over.__wired) return;
+  over.__wired = true;
+
+  let restartBtn = document.getElementById('restart-button');
+  let backBtn    = document.getElementById('gameover-back-button');
+
+  // 1) Alle alten Listener entsorgen (Button klonen)
+  if (restartBtn) {
+    const clone = restartBtn.cloneNode(true);
+    restartBtn.parentNode.replaceChild(clone, restartBtn);
+    restartBtn = clone;
+  }
+  if (backBtn) {
+    const clone = backBtn.cloneNode(true);
+    backBtn.parentNode.replaceChild(clone, backBtn);
+    backBtn = clone;
+  }
+
+  function showStart() {
+    document.getElementById('game-over-screen')?.setAttribute('style', 'display:none; text-align:center;');
+    document.getElementById('start-screen')?.setAttribute('style', '');
+    document.getElementById('game-screen')?.setAttribute('style', 'display:none;');
+  }
+
+  function showGame() {
+    document.getElementById('game-over-screen')?.setAttribute('style', 'display:none; text-align:center;');
+    document.getElementById('game-screen')?.setAttribute('style', '');
+    document.getElementById('start-screen')?.setAttribute('style', 'display:none;');
+  }
+
+  if (restartBtn) {
+    restartBtn.addEventListener('click', (e) => {
+      e.stopImmediatePropagation(); // falls anderswo noch was hängt
+      showGame();
+      try {
+        // wichtig: sec-Timer zurücksetzen, damit UI nicht "leer" bleibt
+        const t = document.getElementById('timer');
+        if (t) t.textContent = '30';
+        if (typeof currentRestart === 'function') {
+          currentRestart();
+        } else {
+          // kein Hook? Sicher zurück zum Start
+          showStart();
+        }
+      } catch (err) {
+        console.error('[Restart] Fehler beim Neustart:', err);
+        showStart();
+      }
+    });
+  }
+
+  if (backBtn) {
+    backBtn.addEventListener('click', (e) => {
+      e.stopImmediatePropagation();
+      showStart();
+    });
+  }
+})();

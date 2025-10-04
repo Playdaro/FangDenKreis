@@ -1,15 +1,16 @@
-import { startShapeShift, SHAPES, COLORS } from './shapeShift.js';
+import { startShapeShift, COLORS, SHAPES } from './shapeShift.js';
+import { setRestart } from './core.js';
 
 export function startShapeShiftHard() {
-  // bewusste Auswahl „anspruchsvoller“ Formen
-  const shapes = SHAPES.filter(s => ['diamond','pentagon','hexagon','star','heart'].includes(s.cls));
-  const colors = COLORS.slice(0, 5); // Rot, Grün, Blau, Gelb, Lila
-  return startShapeShift({
+  const config = {
     count: 5,
-    speedMin: 1.6,
-    speedMax: 3.0,
-    shapes,
-    colors,
-    limitMs: 30000
-  });
+    speedMin: 2.0,
+    speedMax: 4.0,
+    shapes: SHAPES.slice(0, 5),
+    colors: COLORS.slice(0, 5),
+    limitMs: 10000
+  };
+
+  startShapeShift(config);
+  setRestart(() => startShapeShift(config));   // <<< WICHTIG
 }

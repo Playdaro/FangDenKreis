@@ -1,5 +1,5 @@
-// shapeShift.js – strikt N Formen + N Farben; HUD oben rechts; kein TTS
-import { endGame } from './core.js';
+// shapeShift.js – N Formen + N Farben; Ziel ist ENTWEDER Farbe ODER Form; HUD unter Streak
+import { endGame, startCountdown, setRestart } from './core.js';
 
 const rand = (min, max) => Math.random() * (max - min) + min;
 
@@ -32,7 +32,7 @@ export const SHAPES = [
 export function startShapeShift(config) {
   const { count, speedMin, speedMax, shapes, colors, limitMs } = config;
 
-  // harte Regel: genau N Formen + N Farben
+  // Regel: genau N Formen + N Farben
   if (shapes.length !== count || colors.length !== count) {
     throw new Error(
       `ShapeShift: shapes.length (${shapes.length}) und colors.length (${colors.length}) müssen == count (${count}) sein.`
@@ -46,19 +46,74 @@ export function startShapeShift(config) {
     return;
   }
 
+  // Sichtbarkeit hart setzen
+  screen.style.display = 'block';
+  const start = document.getElementById('start-screen');
+  if (start) start.style.display = 'none';
+  const over = document.getElementById('game-over-screen');
+  if (over)  over.style.display  = 'none';
+
   clearShapes(game);
 
-  // HUD oben rechts
+  // Legacy-Kreise der Speed-Modi im Shape-Shift hart verstecken
+  ['circle','circle2','circle3','circle4'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Grid-Container sicherheitshalber auch zu
+  const grid = document.getElementById('grid-game');
+  if (grid) grid.style.display = 'none';
+
+  // --- Center-Target einmalig anlegen ---
+  let centerRoot = game.querySelector('#ss-center-target');
+  if (!centerRoot) {
+    centerRoot = document.createElement('div');
+    centerRoot.id = 'ss-center-target';
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = '';
+    centerRoot.appendChild(label);
+    game.appendChild(centerRoot);
+  }
+  const centerLabel = centerRoot.querySelector('.label');
+
+  // Helper zum Aktualisieren des Center-Labels
+  function updateCenterTarget(target) {
+    centerRoot.classList.remove('color');
+    centerLabel.classList.remove('pop');
+
+    if (!target) {
+      centerLabel.textContent = '';
+      centerLabel.style.color = '#fff';
+      return;
+    }
+
+    centerLabel.textContent = `Fang: ${target.name}`;
+
+    if (target.kind === 'color' && target.colorHex) {
+      centerRoot.classList.add('color');
+      centerLabel.style.color = target.colorHex;
+    } else {
+      centerLabel.style.color = '#ffffff';
+    }
+
+    // Pop-Animation neu triggern
+    // eslint-disable-next-line no-unused-expressions
+    centerLabel.offsetWidth;
+    centerLabel.classList.add('pop');
+  }
+
+  // HUD (unter dem Streak)
   const hud = ensureHud(screen);
-  hud.style.display = 'block';
+  hud.style.display = 'inline-block';
 
   let score = 0;
-  const scoreEl = document.getElementById('score'); // UI-Span
-    if (scoreEl) scoreEl.textContent = '0';
+  const scoreEl = document.getElementById('score');
+  if (scoreEl) scoreEl.textContent = '0';
   let misses = 0;
   let running = true;
   let rafId = null;
-  let lastTarget = null; // {shape, color}
 
   const bounds = () => game.getBoundingClientRect();
 
@@ -66,15 +121,67 @@ export function startShapeShift(config) {
   const forms = shuffle([...shapes]).slice(0, count);
   const cols  = shuffle([...colors]).slice(0, count);
 
-  // Merker für aktuell belegte (Form,Farbe)-Kombis
-  const usedPairs = new Set(); // key: "shape|#hex"
-
+  // ---------- NEU: deterministische Startpositionen (Ecken/Mitte) ----------
   const objs = [];
+  const g = bounds();
+
+  // Hilfsfunktionen für Corner/Mitte-Spawn
+  const PADDING = 14;           // etwas Abstand zu Rand
+  const CORNER_ZONE = 24;       // kleine Streuung in der Ecke
+  function cornerPos(which, size) {
+    switch (which) {
+      case 'TL': return {
+        x: PADDING + Math.random() * CORNER_ZONE,
+        y: PADDING + Math.random() * CORNER_ZONE
+      };
+      case 'TR': return {
+        x: Math.max(PADDING, g.width - size - PADDING - Math.random() * CORNER_ZONE),
+        y: PADDING + Math.random() * CORNER_ZONE
+      };
+      case 'BL': return {
+        x: PADDING + Math.random() * CORNER_ZONE,
+        y: Math.max(PADDING, g.height - size - PADDING - Math.random() * CORNER_ZONE)
+      };
+      case 'BR': return {
+        x: Math.max(PADDING, g.width - size - PADDING - Math.random() * CORNER_ZONE),
+        y: Math.max(PADDING, g.height - size - PADDING - Math.random() * CORNER_ZONE)
+      };
+      default: // center
+        return {
+          x: Math.max(PADDING, (g.width - size) / 2 + (Math.random() * 20 - 10)),
+          y: Math.max(PADDING, (g.height - size) / 2 + (Math.random() * 20 - 10))
+        };
+    }
+  }
+
+  function initialVelocityFromAnchor(anchor, speedMin, speedMax) {
+    // bewegt von der Ecke leicht nach innen
+    const speed = rand(speedMin, speedMax);
+    let vx = 0, vy = 0;
+    switch (anchor) {
+      case 'TL': vx = +speed; vy = +speed; break;
+      case 'TR': vx = -speed; vy = +speed; break;
+      case 'BL': vx = +speed; vy = -speed; break;
+      case 'BR': vx = -speed; vy = -speed; break;
+      default:   // center → random
+        vx = (Math.random() < 0.5 ? -1 : 1) * speed;
+        vy = (Math.random() < 0.5 ? -1 : 1) * speed;
+    }
+    return { vx, vy };
+  }
+
+  // Ankerreihenfolge je count
+  // Easy: 3 Ecken (TL, TR, BL)
+  // Medium: 4 Ecken (TL, TR, BL, BR)
+  // Hard: 4 Ecken + Mitte
+  const anchors =
+    count >= 5 ? ['TL','TR','BL','BR','C'] :
+    count === 4 ? ['TL','TR','BL','BR'] :
+    /* count === 3 */ ['TL','TR','BL'];
+
   for (let i = 0; i < count; i++) {
     const s = forms[i];
     const c = cols[i];
-    const key = pairKey(s, c);
-    usedPairs.add(key);
 
     const el = document.createElement('div');
     el.className = `ss-shape ${s.cls}`;
@@ -83,66 +190,67 @@ export function startShapeShift(config) {
     el.setAttribute('data-color', c.hex);
     game.appendChild(el);
 
-    const g = bounds();
+    // Größe festlegen
     const size = rand(36, 56);
-    let x = rand(0, Math.max(1, g.width  - size));
-    let y = rand(0, Math.max(1, g.height - size));
     el.style.width  = `${size}px`;
     el.style.height = `${size}px`;
+
+    // Position anhand des Ankers
+    const anchor = anchors[i] || 'C';
+    const { x, y } = cornerPos(anchor, size);
     el.style.transform = `translate(${x}px, ${y}px)`;
 
-    let vx = rand(speedMin, speedMax) * (Math.random() < 0.5 ? -1 : 1);
-    let vy = rand(speedMin, speedMax) * (Math.random() < 0.5 ? -1 : 1);
+    // Start-Velocity „nach innen“
+    const { vx, vy } = initialVelocityFromAnchor(anchor, speedMin, speedMax);
 
     const obj = { el, x, y, vx, vy, size };
     objs.push(obj);
   }
+  // ---------- ENDE NEU ----------
 
-  // Start-Target: existierende Kombi aus den Objekten wählen
-  let currentTarget = pickInitialTarget(objs);
-  updateHud(hud, currentTarget);
+  // --- Ziel: ENTWEDER Farbe ODER Form ---
+  let currentTarget = pickInitialSingleTarget(forms, cols);
+  updateHudSingle(hud, currentTarget);
+  updateCenterTarget(
+    currentTarget.type === 'color'
+      ? { kind: 'color', name: currentTarget.value.name, colorHex: currentTarget.value.hex }
+      : { kind: 'shape', name: currentTarget.value.name }
+  );
 
   // Klick-Handling für alle Objekte
   objs.forEach(obj => {
     obj.el.addEventListener('click', () => {
       if (!running) return;
 
-    const okShape = obj.el.classList.contains(currentTarget.shape.cls);
-    const elColor = (obj.el.getAttribute('data-color') || '').toLowerCase();
-    const okColor = elColor === currentTarget.color.hex.toLowerCase();
+      const shape = obj.el.getAttribute('data-shape');
+      const color = (obj.el.getAttribute('data-color') || '').toLowerCase();
 
-    if (!okShape || !okColor) {
-    misses++;
-    flashMiss(hud);
-    return;
-    }
+      let hit = false;
+      if (currentTarget.type === 'shape') {
+        hit = shape === currentTarget.value.cls;
+      } else {
+        hit = color === currentTarget.value.hex.toLowerCase();
+      }
 
+      if (!hit) {
+        misses++;
+        hud.classList.add('miss');
+        setTimeout(() => hud.classList.remove('miss'), 250);
+        return;
+      }
 
-      // Treffer
+      // ✅ Treffer
       score++;
-      lastTarget = currentTarget;
+      if (scoreEl) scoreEl.textContent = String(score);
 
-      // alte Kombi aus usedPairs entfernen
-      usedPairs.delete(pairKey(
-        { cls: obj.el.getAttribute('data-shape') },
-        { hex: obj.el.getAttribute('data-color') }
-      ));
+      currentTarget = pickNextSingleTarget(forms, cols, currentTarget);
+      updateHudSingle(hud, currentTarget);
+      updateCenterTarget(
+        currentTarget.type === 'color'
+          ? { kind: 'color', name: currentTarget.value.name, colorHex: currentTarget.value.hex }
+          : { kind: 'shape', name: currentTarget.value.name }
+      );
 
-      // NEUE Kombi wählen:
-      //  - Form ≠ lastTarget.shape
-      //  - Farbe ≠ lastTarget.color
-      //  - Kombination aktuell nicht vorhanden (usedPairs)
-      const next = pickNextPair(forms, cols, lastTarget, usedPairs);
-
-      // auf dasselbe Element anwenden (wirkt wie “neu spawnen”)
-      applyPairToElement(obj.el, next);
-      usedPairs.add(pairKey(next.shape, next.color));
-
-      // Neues Ziel ist genau diese neue Kombi
-      currentTarget = next;
-      updateHud(hud, currentTarget);
-
-      // minimal beschleunigen
       objs.forEach(o => { o.vx *= 1.02; o.vy *= 1.02; });
     });
   });
@@ -151,19 +259,18 @@ export function startShapeShift(config) {
   function loop() {
     const g = bounds();
 
-    // Bewegung + Wände
     for (const o of objs) {
       o.x += o.vx; o.y += o.vy;
 
-      if (o.x <= 0)               { o.x = 0;               o.vx = Math.abs(o.vx); }
-      if (o.x + o.size >= g.width){ o.x = g.width - o.size; o.vx = -Math.abs(o.vx); }
-      if (o.y <= 0)               { o.y = 0;               o.vy = Math.abs(o.vy); }
-      if (o.y + o.size >= g.height){o.y = g.height - o.size; o.vy = -Math.abs(o.vy); }
+      if (o.x <= 0)                { o.x = 0;                o.vx = Math.abs(o.vx); }
+      if (o.x + o.size >= g.width) { o.x = g.width - o.size; o.vx = -Math.abs(o.vx); }
+      if (o.y <= 0)                { o.y = 0;                o.vy = Math.abs(o.vy); }
+      if (o.y + o.size >= g.height){ o.y = g.height - o.size;o.vy = -Math.abs(o.vy); }
 
       o.el.style.transform = `translate(${o.x}px, ${o.y}px)`;
     }
 
-    // einfache AABB-Kollisionen (Velocity-Tausch)
+    // einfache AABB-Kollisionen
     for (let i = 0; i < objs.length; i++) {
       for (let j = i + 1; j < objs.length; j++) {
         const a = objs[i], b = objs[j];
@@ -179,10 +286,15 @@ export function startShapeShift(config) {
     if (running) rafId = requestAnimationFrame(loop);
   }
 
-  // optionaler Timer (z. B. 30s)
+  // optionaler Timer
   let timeoutId = null;
   if (typeof limitMs === 'number' && limitMs > 0) {
     timeoutId = setTimeout(stop, limitMs);
+  }
+  if (typeof limitMs === 'number' && limitMs > 0) {
+    startCountdown(Math.floor(limitMs / 1000));
+  } else {
+    startCountdown(30);
   }
 
   function stop() {
@@ -190,126 +302,71 @@ export function startShapeShift(config) {
     running = false;
     if (rafId) cancelAnimationFrame(rafId);
     if (timeoutId) clearTimeout(timeoutId);
+
+    if (centerLabel) centerLabel.textContent = '';
+
     hud.style.display = 'none';
     endGame({
       score,
       misses,
-      mode: 'Shape Shift',
-      extra: { target: { shape: currentTarget.shape.name, color: currentTarget.color.name } }
+      mode: 'Shape Shift (Einzelziel)',
+      extra: { target: currentTarget }
     });
   }
 
-  // Back-Button beendet die Session
   document.getElementById('back-button')?.addEventListener('click', stop, { once: true });
 
-  // Los
   loop();
+  setRestart(() => startShapeShift(config));
   return { stop };
 }
 
 // ---------- Helpers ----------
-
 function ensureHud(screen) {
-  // HUD direkt NACH dem Streak-Block platzieren
   const streakBox = document.getElementById('streak-box');
   let hud = document.getElementById('shape-shift-hud');
 
   if (!hud) {
     hud = document.createElement('div');
     hud.id = 'shape-shift-hud';
-    hud.className = 'ss-hud under-streak'; // neue Klasse für Layout unter Streak
+    hud.className = 'ss-hud under-streak';
   }
 
   if (streakBox && hud.parentElement !== streakBox.parentElement) {
-    // direkt hinter den Streak-Block hängen
     streakBox.insertAdjacentElement('afterend', hud);
   } else if (!streakBox && hud.parentElement !== screen) {
-    // Fallback: in den game-screen hängen
     screen.appendChild(hud);
   }
-
   return hud;
 }
 
-
-function updateHud(hud, target) {
-  hud.textContent = `Fang: ${target.color.name} | ${target.shape.name}`;
+function updateHudSingle(hud, target) {
+  hud.textContent = `Fang: ${target.value.name}`;
 }
 
-// --- Miss-Feedback (HUD kurz wackeln lassen) ---
-function flashMiss(hud) {
-  if (!hud) return;
-  hud.classList.add('miss');
-  setTimeout(() => hud.classList.remove('miss'), 250);
-}
-
-function applyPairToElement(el, pair) {
-  // Form-Klasse umschalten
-  const prevShape = el.getAttribute('data-shape') || '';
-  if (!el.classList.contains(pair.shape.cls)) {
-    if (prevShape) el.classList.remove(prevShape);
-    el.classList.add(pair.shape.cls);
+function pickInitialSingleTarget(forms, cols) {
+  const type = Math.random() < 0.5 ? 'shape' : 'color';
+  if (type === 'shape') {
+    const s = forms[Math.floor(Math.random() * forms.length)];
+    return { type, value: s };
+  } else {
+    const c = cols[Math.floor(Math.random() * cols.length)];
+    return { type, value: c };
   }
-  el.setAttribute('data-shape', pair.shape.cls);
-
-  // Farbe setzen
-  el.style.background = pair.color.hex;
-  el.setAttribute('data-color', pair.color.hex);
 }
 
-function pickInitialTarget(objs) {
-  const any = objs[Math.floor(Math.random() * objs.length)].el;
-  const s = { cls: any.getAttribute('data-shape'), name: shapeName(any.getAttribute('data-shape')) };
-  const c = { hex: any.getAttribute('data-color'), name: colorName(any.getAttribute('data-color')) };
-  return { shape: s, color: c };
-}
+function pickNextSingleTarget(forms, cols, last) {
+  const switchType = Math.random() < 0.5;
+  let type = last.type;
+  if (switchType) type = (last.type === 'shape') ? 'color' : 'shape';
 
-function pickNextPair(forms, cols, lastTarget, usedPairs) {
-  // Kandidaten: Form ≠ letzte Form, Farbe ≠ letzte Farbe, Kombi noch nicht belegt
-  const candidates = [];
-  for (const s of forms) {
-    if (s.cls === lastTarget.shape.cls) continue;
-    for (const c of cols) {
-      if (c.hex.toLowerCase() === lastTarget.color.hex.toLowerCase()) continue;
-      const key = pairKey(s, c);
-      if (!usedPairs.has(key)) candidates.push({ shape: s, color: c });
-    }
+  if (type === 'shape') {
+    const choices = forms.filter(s => last.type !== 'shape' || s.cls !== last.value.cls);
+    return { type: 'shape', value: choices[Math.floor(Math.random() * choices.length)] || forms[0] };
+  } else {
+    const choices = cols.filter(c => last.type !== 'color' || c.hex.toLowerCase() !== last.value.hex.toLowerCase());
+    return { type: 'color', value: choices[Math.floor(Math.random() * choices.length)] || cols[0] };
   }
-
-  if (candidates.length === 0) {
-    // Fallback 1: alles ≠ letzte Form und ≠ letzte Farbe, unabhängig von usedPairs
-    for (const s of forms) {
-      if (s.cls === lastTarget.shape.cls) continue;
-      for (const c of cols) {
-        if (c.hex.toLowerCase() === lastTarget.color.hex.toLowerCase()) continue;
-        return { shape: s, color: c };
-      }
-    }
-    // Fallback 2: irgendwas ≠ exakt letzter Kombi
-    for (const s of forms) {
-      for (const c of cols) {
-        if (!(s.cls === lastTarget.shape.cls && c.hex.toLowerCase() === lastTarget.color.hex.toLowerCase())) {
-          return { shape: s, color: c };
-        }
-      }
-    }
-  }
-
-  return candidates[Math.floor(Math.random() * candidates.length)];
-}
-
-function pairKey(s, c) {
-  return `${s.cls}|${c.hex.toLowerCase()}`;
-}
-
-function shapeName(cls) {
-  const f = SHAPES.find(x => x.cls === cls);
-  return f?.name || cls;
-}
-
-function colorName(hex) {
-  const c = COLORS.find(x => x.hex.toLowerCase() === (hex || '').toLowerCase());
-  return c?.name || 'Farbe';
 }
 
 function shuffle(arr) {
