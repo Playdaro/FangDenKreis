@@ -48,8 +48,6 @@ export const audioTrainLevels = [
 ];
 export let audioTrainingLevelDisplay, audioTrainingXPFill, audioTrainingXPAmount;
 
-// core.js (ganz oben)
-
 // Trainings-State
 export let trainXP = 0;
 export let trainLevel = 1;
@@ -117,9 +115,7 @@ export function incrementXP() {
 export function triggerMissFlash() {
   if (!gameArea) return;
   gameArea.classList.remove('miss-flash'); // reset, falls noch aktiv
-  // Force reflow, damit Animation bei schnellen Misses erneut abspielt
-  // (Optional, nur wenn Animation manchmal nicht triggert)
-  void gameArea.offsetWidth;
+  void gameArea.offsetWidth;               // Force reflow
   gameArea.classList.add('miss-flash');
   setTimeout(() => gameArea && gameArea.classList.remove('miss-flash'), 160);
 }
@@ -154,7 +150,6 @@ export function registerHitForStreak() {
     // Milestones (5 / 10 / 20 …) – anpassbar
     if ([5,10,15,20,30].includes(currentStreak)) {
       streakBox.classList.add('streak-milestone');
-      // Entferne Milestone-Hervorhebung nach kurzer Zeit
       setTimeout(() => streakBox && streakBox.classList.remove('streak-milestone'), 1200);
     }
   }
@@ -206,18 +201,223 @@ export function baseEndGame() {
   const total = score + misses;
   const acc   = total > 0 ? ((score/total)*100).toFixed(1) : "100";
 
-  finalScore.textContent    = score;
-  finalReaction.textContent = avg;
-  finalAccuracy.textContent = acc + "%";
-  finalMisses.textContent   = misses;
+  finalScore.textContent      = score;
+  finalReaction.textContent   = avg;
+  finalAccuracy.textContent   = acc + "%";
+  finalMisses.textContent     = misses;
   playerNameFinal.textContent = playerName || '-';
 }
 
-// EndGame-Override-Mechanismus
+// ---------- EndGame-Override-Mechanismus ----------
 let endGameFn = baseEndGame;
 export function setEndGame(fn) { endGameFn = fn || baseEndGame; }
-export function endGame() { endGameFn(); }
 
+/**
+ * endGame(runArg?)
+ * - ohne runArg: altes Verhalten (baseEndGame oder Override)
+ * - mit runArg (Objekt): speichert Runde in Statistik ("Jetzt", "Historie", "Bestwerte")
+ */
+export function endGame(runArg) {
+  if (runArg && typeof runArg === 'object') {
+    try { recordAndRenderRun(runArg); } catch (e) { console.error('[endGame] record error', e); }
+    return;
+  }
+  endGameFn();
+}
+
+// ---------- Statistik: Persist & Render ----------
+function recordAndRenderRun(run) {
+  const key = 'brc_runs';
+  let runs = [];
+  try { runs = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+
+  runs.unshift({
+    ts: run.finishedAt || new Date().toISOString(),
+    mode: run.modeId || run.mode || 'unknown',
+    group: run.modeGroup || null,
+    diff: run.difficulty || null,
+    score: Number(run.score||0),
+    hits: Number(run.hits||0),
+    misses: Number(run.misses||0),
+    total: Number(run.total|| (Number(run.hits||0)+Number(run.misses||0))),
+    avgRt: Number(run.avgRt||0),            // Sekunden
+    acc:  Number(run.accuracy||0),          // 0..1
+    hpm:  Number(run.hpm||0),
+    bestStreak: Number(run.bestStreak||0),
+    duration: Number(run.durationSec||0)    // Sekunden
+  });
+  runs = runs.slice(0, 200);
+  try { localStorage.setItem(key, JSON.stringify(runs)); } catch {}
+
+  // --- Jetzt ---
+  setText('s-last-mode', runs[0].mode);
+  setText('s-score', String(runs[0].score));
+  setText('s-acc', Math.round(runs[0].acc*100) + '%');
+  setText('s-avg', runs[0].avgRt.toFixed(2) + ' s');
+  setText('s-beststreak', String(runs[0].bestStreak));
+  setText('s-hpm', runs[0].hpm.toFixed(1));
+  setText('s-duration', String(runs[0].duration) + ' s');
+
+  // --- Zeitberechnung ---
+  const now = Date.now();
+  let totalSec=0, daySec=0, weekSec=0;
+  for (const r of runs) {
+    totalSec += r.duration||0;
+    const t = Date.parse(r.ts||0);
+    if (isNaN(t)) continue;
+    if (isSameDay(t, now)) daySec += r.duration||0;
+    if (now - t <= 7*86400e3) weekSec += r.duration||0;
+  }
+  setText('s-today',  daySec + ' s');
+  setText('s-7d',     weekSec + ' s');
+  setText('s-total',  totalSec + ' s');
+
+  // --- Bestwerte ---
+  const best = {
+    bestscore: Math.max(...runs.map(r=>r.score||0)),
+    longest:   Math.max(...runs.map(r=>r.duration||0)),
+    bestAvg:   Math.min(...runs.map(r=>r.avgRt>0 ? r.avgRt : Infinity)),
+    bestAcc:   Math.max(...runs.map(r=>r.acc||0)),
+    bestHpm:   Math.max(...runs.map(r=>r.hpm||0)),
+    bestStk:   Math.max(...runs.map(r=>r.bestStreak||0))
+  };
+  setText('b-bestscore', String(best.bestscore));
+  setText('b-longest',   best.longest + ' s');
+  setText('b-avg',       isFinite(best.bestAvg) ? best.bestAvg.toFixed(2) + ' s' : '–');
+  setText('b-acc',       isFinite(best.bestAcc) ? Math.round(best.bestAcc*100) + '%' : '–');
+  setText('b-hpm',       best.bestHpm.toFixed(1));
+  setText('b-streak',    String(best.bestStk));
+
+  // --- Letzte 5 Runden ---
+  renderRunsTable(runs.slice(0,5));
+}
+
+// ---- Helpers für UI (einmalig, keine Duplikate!) ----
+function setText(id, txt){ const el=document.getElementById(id); if(el) el.textContent=txt; }
+function isSameDay(a,b){ const da=new Date(a),db=new Date(b);return da.getFullYear()===db.getFullYear()&&da.getMonth()===db.getMonth()&&da.getDate()===db.getDate(); }
+function renderRunsTable(rows){
+  const tbody=document.querySelector('#runs-table tbody');
+  if(!tbody) return;
+  tbody.innerHTML='';
+  for(const r of rows){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${fmtTs(r.ts)}</td>
+      <td>${r.mode}</td>
+      <td>${r.score}</td>
+      <td>${isFinite(r.avgRt)?r.avgRt.toFixed(2)+' s':'–'}</td>
+      <td>${isFinite(r.acc)?Math.round(r.acc*100)+'%':'–'}</td>
+      <td>${r.duration||0} s</td>`;
+    tbody.appendChild(tr);
+  }
+}
+function bestMin(...vals){ const m = Math.min(...vals); return isFinite(m) ? m : Infinity; }
+function bestMax(...vals){ const m = Math.max(...vals); return isFinite(m) ? m : -1; }
+function fmtTs(ts){
+  try{
+    const d = new Date(ts);
+    const p = n => String(n).padStart(2,'0');
+    return `${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }catch{ return ts || '–'; }
+}
+
+// --- Optionaler UI-Refresh für Stats (aus Storage) ---
+export function refreshStatsUI() {
+  const key = 'brc_runs';
+  let runs = [];
+  try { runs = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+  if (!runs.length) return;
+
+  // "Jetzt"
+  setText('s-last-mode', runs[0].mode);
+  setText('s-score', String(runs[0].score));
+  setText('s-acc', Math.round((runs[0].acc||0)*100) + '%');
+  setText('s-avg', isFinite(runs[0].avgRt) ? runs[0].avgRt.toFixed(2) + ' s' : '–');
+  setText('s-beststreak', String(runs[0].bestStreak||0));
+  setText('s-hpm', isFinite(runs[0].hpm) ? runs[0].hpm.toFixed(1) : '–');
+  setText('s-duration', String(runs[0].duration||0) + ' s');
+
+  // Zeiten
+  const now = Date.now();
+  let totalSec=0, daySec=0, weekSec=0;
+  for (const r of runs) {
+    totalSec += r.duration||0;
+    const t = Date.parse(r.ts||0);
+    if (isNaN(t)) continue;
+    if (isSameDay(t, now)) daySec += r.duration||0;
+    if (now - t <= 7*86400e3) weekSec += r.duration||0;
+  }
+  setText('s-today',  daySec + ' s');
+  setText('s-7d',     weekSec + ' s');
+  setText('s-total',  totalSec + ' s');
+
+  // Bestwerte
+  const best = {
+    bestscore: Math.max(...runs.map(r=>r.score||0)),
+    longest:   Math.max(...runs.map(r=>r.duration||0)),
+    bestAvg:   Math.min(...runs.map(r=>r.avgRt>0 ? r.avgRt : Infinity)),
+    bestAcc:   Math.max(...runs.map(r=>r.acc||0)),
+    bestHpm:   Math.max(...runs.map(r=>r.hpm||0)),
+    bestStk:   Math.max(...runs.map(r=>r.bestStreak||0))
+  };
+  setText('b-bestscore', String(best.bestscore));
+  setText('b-longest',   best.longest + ' s');
+  setText('b-avg',       isFinite(best.bestAvg) ? best.bestAvg.toFixed(2) + ' s' : '–');
+  setText('b-acc',       isFinite(best.bestAcc) ? Math.round(best.bestAcc*100) + '%' : '–');
+  setText('b-hpm',       best.bestHpm.toFixed(1));
+  setText('b-streak',    String(best.bestStk));
+
+  // Historie (5)
+  renderRunsTable(runs.slice(0,5));
+}
+
+
+
+export function ensureFrontMelody() {
+  if (window.frontMelody) return window.frontMelody;
+  try {
+    const a = new Audio('Frontmelodie.wav'); // falls Datei fehlt: catch in startFrontMelody()
+    a.loop = true;
+    window.frontMelody = a;
+  } catch {
+    window.frontMelody = null;
+  }
+  return window.frontMelody;
+}
+
+export function startFrontMelody() {
+  try {
+    const off = localStorage.getItem('musicOff') === '1';
+    if (off) return;
+    const a = ensureFrontMelody();
+    if (!a) return;
+    if (a.paused) a.play().catch(()=>{ /* Autoplay-Blocker */ });
+  } catch {}
+}
+
+/**
+ * Zentraler Re-Entry für „Zurück zum Start“
+ * - Blendet Screens korrekt um
+ * - Re-initialisiert Musik & Toggle
+ * - Aktualisiert Stats unten/Modal
+ */
+export function showStart() {
+  // Alle Screens aus
+  const ids = ['info-screen','name-screen','game-screen','mind-switch','game-over-screen'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  // Start-Screen an
+  const start = document.getElementById('start-screen');
+  if (start) start.style.display = 'block';
+
+  // Footer/Audio/Stats
+  try { startFrontMelody(); } catch {}
+  try { refreshStatsUI(); } catch {}
+
+  console.log('[Core] Reinit Startscreen ausgeführt.');
+}
 
 // ---------- Initialisierung ----------
 export function initCore() {
@@ -257,18 +457,16 @@ export function initCore() {
   audioTrainingXPFill        = document.getElementById('audio-training-xpFill');
   audioTrainingXPAmount      = document.getElementById('audio-training-xpAmount');
 
-
   levelDisplay = document.getElementById("levelDisplay");
   xpFill       = document.getElementById("xpFill");
   xpAmount     = document.getElementById("xpAmount");
   resetBtn     = document.getElementById("training-reset");
 
-    // Am Ende von initCore():
+  // Am Ende von initCore():
   trainingTimeDisplay = document.getElementById('training-time');
   trainLevelDisplay   = document.getElementById('train-level');
   trainXPFill         = document.getElementById('train-xp-fill');
   trainXPAmount       = document.getElementById('train-xp-amount');
-
 
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
@@ -306,6 +504,10 @@ export function initCore() {
 
     gameScreen.style.display     = "none";
     gameOverScreen.style.display = "none";
+
+    // >>> NEU: Footer/Audio/Stats beim ersten Einstieg initialisieren
+    try { startFrontMelody(); } catch {}
+    try { refreshStatsUI(); } catch {}
   };
 } // <--- Ende initCore
 
@@ -348,7 +550,6 @@ export function moveCircleSafely(el) {
   } while (overlap);
   el.style.left = `${x}px`;
   el.style.top  = `${y}px`;
-  // HINWEIS: lastMoveTime nur für Hauptkreis aktualisiert.
 }
 
 // Zusatzkreise (vorbereitet – noch ungenutzt)
@@ -411,15 +612,11 @@ export function endTraining() {
   if (trainingFinalMisses)  trainingFinalMisses.textContent  = misses;
   if (trainingFinalReaction)trainingFinalReaction.textContent= avgReaction;
   
-  // Buttons binden (einmalig beim ersten Ende wäre besser, einfache Variante hier):
   const btnContinue = document.getElementById('training-continue');
   const btnBack     = document.getElementById('training-back');
 
   if (btnContinue) {
     btnContinue.onclick = () => {
-      // Weiter spielen = Training erneut starten (entweder gleiches Level oder hoch?)
-      // Angenommen: du willst einfach weitermachen auf aktuellem Level (kein Reset)
-      // Falls du bei Levelaufstieg schon erhöht hast, lassen wir currentLevel so.
       if (trainingEndScreen) trainingEndScreen.style.display = "none";
       startTraining(); // Funktion aus training.js
     };
@@ -431,6 +628,7 @@ export function endTraining() {
     };
   }
 }
+
 export function resetAudioTraining() {
   audioTrainXP = 0;
   audioTrainLevel = 0;
@@ -453,6 +651,7 @@ export function incrementAudioTrainingXP() {
   if (audioTrainingXPFill)   audioTrainingXPFill.style.width   = pct + '%';
   if (audioTrainingXPAmount) audioTrainingXPAmount.textContent = audioTrainXP + ' XP';
 }
+
 export function resetTimedTraining() {
   trainXP = 0;
   trainLevel = 1;
@@ -469,7 +668,6 @@ export function incrementTrainXP(amount = 1) {
     trainXP -= XP_PER_LEVEL;
     trainLevel++;
     if (trainLevelDisplay) trainLevelDisplay.textContent = 'Level ' + trainLevel;
-    
   }
   const pct = Math.min(100, (trainXP / XP_PER_LEVEL) * 100);
   if (trainXPFill)   trainXPFill.style.width     = pct + '%';
@@ -516,30 +714,48 @@ export function endTimedTraining() {
     backBtn = clone;
   }
 
-  function showStart() {
-    document.getElementById('game-over-screen')?.setAttribute('style', 'display:none; text-align:center;');
-    document.getElementById('start-screen')?.setAttribute('style', '');
-    document.getElementById('game-screen')?.setAttribute('style', 'display:none;');
-  }
-
+  // ---------- Funktionen ----------
   function showGame() {
     document.getElementById('game-over-screen')?.setAttribute('style', 'display:none; text-align:center;');
     document.getElementById('game-screen')?.setAttribute('style', '');
     document.getElementById('start-screen')?.setAttribute('style', 'display:none;');
   }
 
+function showStart() {
+  // Screens umschalten
+  document.getElementById('game-over-screen')?.setAttribute('style', 'display:none; text-align:center;');
+  document.getElementById('game-screen')?.setAttribute('style', 'display:none;');
+  const start = document.getElementById('start-screen');
+  if (start) start.style.display = 'block';
+
+  // Musik wieder erlauben (kein direkter Start-Aufruf hier)
+  try { window.fdkAllowStartMusic?.(); } catch {}
+
+  // 📊/🔈 Buttons wieder EINBLENDEN
+  const statsBtn = document.getElementById('stats-toggle');
+  if (statsBtn) statsBtn.style.display = 'block';
+  const audioBtn = document.getElementById('start-audio-toggle');
+  if (audioBtn) audioBtn.style.display = 'block';
+
+  // Stats-UI auffrischen (Jetzt/Bestwerte/Letzte 5)
+  try { refreshStatsUI?.(); } catch {}
+
+  console.log('[Core] Startscreen neu geladen (+ Buttons sichtbar).');
+}
+
+
+  // ---------- Restart & Back ----------
   if (restartBtn) {
     restartBtn.addEventListener('click', (e) => {
       e.stopImmediatePropagation(); // falls anderswo noch was hängt
       showGame();
       try {
-        // wichtig: sec-Timer zurücksetzen, damit UI nicht "leer" bleibt
         const t = document.getElementById('timer');
         if (t) t.textContent = '30';
         if (typeof currentRestart === 'function') {
           currentRestart();
         } else {
-          // kein Hook? Sicher zurück zum Start
+          // Fallback, wenn kein Restart-Callback gesetzt ist
           showStart();
         }
       } catch (err) {
@@ -552,7 +768,7 @@ export function endTimedTraining() {
   if (backBtn) {
     backBtn.addEventListener('click', (e) => {
       e.stopImmediatePropagation();
-      showStart();
+      showStart();   // nutzt jetzt die neue Version oben
     });
   }
-})();
+})(); // <--- Ende wireGameOverButtonsOnce

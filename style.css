@@ -203,26 +203,52 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   position: relative;
 }
 
-/* Globales Styling für alle Modal-Schließen-Buttons (×) */
+/* Fix: Close-Button soll sich an Modal-Box orientieren */
+.modal {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.6);
+  z-index: 999;
+}
+
+.modal .modal-content {
+  position: relative;  /* sorgt dafür, dass das "X" oben rechts in der Box bleibt */
+}
+
+
 .modal .modal-close {
   position: absolute;
-  top: 10px;
-  right: 12px;
-  background: transparent;
-  border: none;
-  font-size: 24px;
+  top: 8px;
+  right: 8px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 80, 80, 0.25);     /* zarter roter Glas-Look */
+  border-radius: 999px;
+  color: #ff3b30;                          /* kräftiges X */
   font-weight: 700;
-  line-height: 1;
+  font-size: 22px;
+  border: 1px solid rgba(255,255,255,0.4); /* dünner Rahmen */
+  backdrop-filter: blur(4px);              /* leicht verschwommenes Glas */
   cursor: pointer;
-  color: #ff3b30;                 /* ROT statt weiß */
-  transition: color .12s ease, transform .12s ease;
-  z-index: 2;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
 
 .modal .modal-close:hover {
-  color: #ff6b6b;                 /* etwas heller beim Hover */
-  transform: scale(1.1);
+  background: rgba(255, 80, 80, 0.8);      /* intensiver beim Hover */
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+  transform: scale(1.08);
 }
+
 
 .modal .modal-close:focus-visible {
   outline: 2px solid #ff3b30;
@@ -344,7 +370,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   background:rgba(0,0,0,0.45); z-index:1000; }
 .modal-panel { width:min(680px, 92vw); max-height:90vh; overflow:auto; background:#fff; border-radius:12px;
   box-shadow:0 10px 30px rgba(0,0,0,0.2); padding:16px 16px 20px; position:relative; }
-.modal-close { position:absolute; top:8px; right:10px; font-size:20px; border:none; background:transparent; cursor:pointer; }
+
 
 .tabs { display:flex; gap:6px; margin:6px 0 12px; }
 .tab-btn { border:none; padding:8px 12px; border-radius:8px; background:#eee; cursor:pointer; }
@@ -501,4 +527,109 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   0%   { transform: scale(0.9); opacity: 0.7; }
   60%  { transform: scale(1.05); opacity: 1; }
   100% { transform: scale(1); }
+}
+/* Gesamtes Mind-Switch-Spielfeld */
+#mind-switch {
+  position: relative;
+  width: 90%;
+  height: 70vh;
+  margin: 40px auto;
+  border: 3px solid rgba(255,255,255,0.2);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(0,0,0,0.4);
+  background: rgba(255,255,255,0.05);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Spielfeldhälften */
+.ms-arena {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* linke und rechte Seite neutral */
+.ms-side {
+  background: rgba(255,255,255,0.03);
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+/* optische Mittellinie */
+.ms-arena::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 100%;
+  background: rgba(255,255,255,0.15);
+  transform: translateX(-50%);
+}
+
+/* Hover-Orientierung (optional) */
+.ms-side:hover {
+  background: rgba(255,255,255,0.08);
+  cursor: pointer;
+}
+
+/* kurzzeitige Blitzfarben */
+.ms-side.ms-ok  { background: rgba(0,255,0,0.25) !important; }
+.ms-side.ms-bad { background: rgba(255,0,0,0.25) !important; }
+
+/* Text in der Mitte */
+#ms-prompt {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 700;
+  text-shadow: 0 0 12px rgba(0,0,0,0.6);
+  pointer-events: none; /* klicks gehen durch */
+}
+.ms-arena::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 5px;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    rgba(255,0,0,0.5),
+    rgba(0,255,0,0.5)
+  );
+  box-shadow: 0 0 15px rgba(255,255,255,0.3);
+  transform: translateX(-50%);
+  border-radius: 3px;
+}
+#ms-cue {
+  letter-spacing: .5px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  text-transform: uppercase;
+}
+#ms-back {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.8);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  color: #000;           /* ← Textfarbe schwarz */
+}
+#ms-back:hover {
+  background: rgba(255,255,255,1);
+  color: #000;           /* optional: bleibt schwarz beim Hover */
 }

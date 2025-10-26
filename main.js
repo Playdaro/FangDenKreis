@@ -53,6 +53,8 @@ import { startShapeShiftMedium } from './shapeShiftMedium.js';
 import { startShapeShiftHard } from './shapeShiftHard.js';
 
 
+
+
 // === Merker für "Weiter spielen" ===
 let lastModeType = null;        // 'grid' | null (kannst du später für andere Modi erweitern)
 let lastGridDifficulty = null;  // 'easy' | 'medium' | 'hard'
@@ -258,23 +260,19 @@ function persistOnce(payload) {
   finalizeRunAndPersist(payload);
 }
 
-// === Startscreen-Audio ===
+// === Startscreen-Audio (Legacy-Variablen, jetzt via core.js FrontMelody) ===
 let startScreenAudio = null;
 let startScreenAudioEnabled = false;
 let startScreenAudioFadeInterval = null;
 
-function initStartscreenAudio() {
-  if (startScreenAudio) return;
-  startScreenAudio = new Audio('Frontmelodie.wav'); // Datei im gleichen Verzeichnis
-  startScreenAudio.loop = true;
-  startScreenAudio.preload = 'auto';
-  startScreenAudio.volume = 0;
-  startScreenAudio.muted = false;
+// --- Musik-Toggle NUR im Startscreen (ein Button, persistenter State) ---
+import { startFrontMelody, ensureFrontMelody } from './core.js';
 
-  // Mute/Unmute-Button nur auf Startscreen
-  const muteBtn = document.createElement('button');
+// Falls Button schon existiert (z. B. nach Rückkehr zum Start), NICHT doppelt anlegen
+let muteBtn = document.getElementById('start-audio-toggle');
+if (!muteBtn) {
+  muteBtn = document.createElement('button');
   muteBtn.id = 'start-audio-toggle';
-  muteBtn.textContent = '🔈';
   muteBtn.setAttribute('aria-label', 'Sound an/aus');
   Object.assign(muteBtn.style, {
     position: 'fixed',
@@ -289,33 +287,52 @@ function initStartscreenAudio() {
     cursor: 'pointer',
   });
   document.body.appendChild(muteBtn);
-
-  // Initial: Button ausblenden (nur Startscreen zeigt ihn)
-  muteBtn.style.display = 'none';
-
-  let muted = false;
-  const updateButton = () => {
-    muteBtn.textContent = muted ? '🔇' : '🔈';
-  };
-  updateButton();
-
-  muteBtn.addEventListener('click', () => {
-    if (!startScreenAudio) return;
-    muted = !muted;
-    startScreenAudio.muted = muted;
-    if (muted) {
-      clearInterval(startScreenAudioFadeInterval);
-      startScreenAudio.volume = 0;
-    } else {
-      fadeInStartscreenAudio(0.15, 500);
-    }
-    updateButton();
-  });
-
-  // global verfügbar machen (für Spiel-Module)
-  window.stopStartscreenMusic = stopStartscreenMusic;
 }
 
+// Icon je nach Zustand setzen
+const syncIcon = () => {
+  const off = localStorage.getItem('musicOff') === '1';
+  muteBtn.textContent = off ? '🔇' : '🔈';
+};
+
+// Klick-Handler (nur einmal binden)
+if (!muteBtn.__wired) {
+  muteBtn.__wired = true;
+  muteBtn.addEventListener('click', () => {
+    const off = localStorage.getItem('musicOff') === '1';
+    if (off) {
+      // einschalten
+      localStorage.setItem('musicOff', '0');
+      ensureFrontMelody();       // sorgt für window.frontMelody
+      startFrontMelody();        // spielt ab (falls nicht gestoppt)
+    } else {
+      // stummschalten
+      localStorage.setItem('musicOff', '1');
+      try { window.frontMelody?.pause(); } catch {}
+    }
+    syncIcon();
+  });
+}
+
+// Beim ersten Laden Icon setzen und ggf. Autostart
+ensureFrontMelody();
+syncIcon();
+if (localStorage.getItem('musicOff') !== '1') {
+  // nur starten, wenn nicht gemutet
+  startFrontMelody();
+}
+// Stopt die Startscreen-Musik (neues frontMelody + evtl. altes startScreenAudio)
+function stopStartscreenMusic() {
+  try { window.frontMelody?.pause(); } catch {}
+  try { startScreenAudio?.pause(); } catch {}
+  try { clearInterval(startScreenAudioFadeInterval); } catch {}
+  // Kein Autostart im Spiel
+  window.__fdkBlockStartMusic = true;
+}
+
+
+
+// (Legacy) Fade-In für altes startScreenAudio – bleibt ohne Wirkung, schadet aber nicht
 function fadeInStartscreenAudio(targetVol = 0.15, durationMs = 500) {
   if (!startScreenAudio) return;
   clearInterval(startScreenAudioFadeInterval);
@@ -332,30 +349,13 @@ function fadeInStartscreenAudio(targetVol = 0.15, durationMs = 500) {
   }, stepTime);
 }
 
-// Musik nur bei Interaktion starten – aber **NICHT**, wenn geblockt
-function enableStartscreenMusicOnce() {
-  if (window.__fdkBlockStartMusic) return; // GUARD: im Spiel keine Musik starten
-  if (startScreenAudioEnabled) return;
-  if (!startScreenAudio) return;
-  startScreenAudio.play().catch(() => {
-    // Autoplay kann blockiert sein bis Interaktion – wird durch waitForInteractionToStartAudio gedeckt
-  });
-  fadeInStartscreenAudio(0.15, 800);
-  startScreenAudioEnabled = true;
-}
-
-function stopStartscreenMusic() {
-  if (!startScreenAudio) return;
-  startScreenAudio.pause();
-  startScreenAudio.currentTime = 0;
-  startScreenAudioEnabled = false;
-  clearInterval(startScreenAudioFadeInterval);
-}
-
-// Audio-Interaktion-Trigger
+// Musik nur bei Interaktion starten – jetzt für frontMelody
 function waitForInteractionToStartAudio() {
   const handler = () => {
-    enableStartscreenMusicOnce();
+    if (!window.__fdkBlockStartMusic && localStorage.getItem('musicOff') !== '1') {
+      ensureFrontMelody();
+      startFrontMelody();
+    }
     document.removeEventListener('click', handler);
     document.removeEventListener('keydown', handler);
   };
@@ -363,6 +363,7 @@ function waitForInteractionToStartAudio() {
   document.addEventListener('keydown', handler, { once: true });
 }
 
+// Hinweis-Einblendung für Autoplay
 function showAudioPrompt() {
   const hint = document.createElement('div');
   hint.textContent = 'Klicke irgendwo, um Hintergrundmusik zu aktivieren';
@@ -416,8 +417,11 @@ window.addEventListener('DOMContentLoaded', () => {
   initStatsButton();
   initStatsModalWiring();
 
-  // Audio + Stats-Button vorbereiten
-  initStartscreenAudio();
+  // Audio vorbereiten (Ersatz für initStartscreenAudio)
+  ensureFrontMelody();
+  if (localStorage.getItem('musicOff') !== '1') {
+    startFrontMelody();
+  }
 
   // Standard: außerhalb Startscreen erstmal verstecken
   setAudioToggleVisible(false);
@@ -547,6 +551,7 @@ btnShapeHard?.addEventListener('click', () => {
     trainingIntroModal.addEventListener('click', e => {
       if (e.target === trainingIntroModal) {
         trainingIntroModal.style.display = 'none';
+        trainingIntroModal.setAttribute('aria-hidden','true');
       }
     });
   }
@@ -654,17 +659,59 @@ btnShapeHard?.addEventListener('click', () => {
     });
   }
 
-  // Audio-Modal-Logik
-  const btnAudio   = document.getElementById('btn-audio');
-  const audioModal = document.getElementById('audio-modal');
-  const audioClose = audioModal?.querySelector('.modal-close');
-  if (btnAudio && audioModal && audioClose) {
-    btnAudio.addEventListener('click', () => { audioModal.style.display = 'flex'; });
-    audioClose.addEventListener('click', () => { audioModal.style.display = 'none'; });
-    audioModal.addEventListener('click', e => {
-      if (e.target === audioModal) audioModal.style.display = 'none';
-    });
-  }
+// Audio-Modal-Logik (unverändert)
+const btnAudio   = document.getElementById('btn-audio');
+const audioModal = document.getElementById('audio-modal');
+const audioClose = audioModal?.querySelector('.modal-close');
+if (btnAudio && audioModal && audioClose) {
+  btnAudio.addEventListener('click', () => { audioModal.style.display = 'flex'; });
+  audioClose.addEventListener('click', () => { audioModal.style.display = 'none'; });
+  audioModal.addEventListener('click', e => {
+    if (e.target === audioModal) audioModal.style.display = 'none';
+  });
+}
+
+// Mind Switch Modal öffnen/schließen
+document.getElementById('btn-mind')?.addEventListener('click', () => {
+  document.getElementById('mind-modal').style.display = 'flex';
+});
+document.querySelector('#mind-modal .modal-close')?.addEventListener('click', () => {
+  document.getElementById('mind-modal').style.display = 'none';
+});
+document.getElementById('mind-modal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'mind-modal') e.currentTarget.style.display = 'none';
+});
+
+// Mind Switch Start-Hooks
+document.getElementById('btn-mind-easy')?.addEventListener('click', async () => {
+  document.getElementById('mind-modal').style.display = 'none';
+  // wie bei anderen Modi:
+  stopStartscreenMusic?.(); window.fdkBlockStartMusic?.();
+  setAudioToggleVisible?.(false); setStatsToggleVisible?.(false);
+  beginSession?.({ modeGroup:'mind', modeId:'mind-easy', difficulty:'easy' });
+  // optional: Start-Screen ausblenden (falls Runner das nicht macht)
+  document.getElementById('start-screen')?.style && (document.getElementById('start-screen').style.display = 'none');
+  const m = await import('./mindSwitchEasy.js'); m.startMindSwitchEasy();
+});
+
+document.getElementById('btn-mind-medium')?.addEventListener('click', async () => {
+  document.getElementById('mind-modal').style.display = 'none';
+  stopStartscreenMusic?.(); window.fdkBlockStartMusic?.();
+  setAudioToggleVisible?.(false); setStatsToggleVisible?.(false);
+  beginSession?.({ modeGroup:'mind', modeId:'mind-medium', difficulty:'medium' });
+  document.getElementById('start-screen')?.style && (document.getElementById('start-screen').style.display = 'none');
+  const m = await import('./mindSwitchMedium.js'); m.startMindSwitchMedium();
+});
+
+document.getElementById('btn-mind-hard')?.addEventListener('click', async () => {
+  document.getElementById('mind-modal').style.display = 'none';
+  stopStartscreenMusic?.(); window.fdkBlockStartMusic?.();
+  setAudioToggleVisible?.(false); setStatsToggleVisible?.(false);
+  beginSession?.({ modeGroup:'mind', modeId:'mind-hard', difficulty:'hard' });
+  document.getElementById('start-screen')?.style && (document.getElementById('start-screen').style.display = 'none');
+  const m = await import('./mindSwitchHard.js'); m.startMindSwitchHard();
+});
+
 
   // === MEMORY (Simon Sagt) – HIER EINFÜGEN ===
   const memoryModal   = document.getElementById('memory-modal');
@@ -675,7 +722,7 @@ btnShapeHard?.addEventListener('click', () => {
 
   btnMemory?.addEventListener('click', () => {
     if (memoryModal) {
-      memoryModal.style.display = 'block';
+      memoryModal.style.display = 'flex';     // ← so wie bei Grid/Visual
       memoryModal.setAttribute('aria-hidden','false');
     }
   });
