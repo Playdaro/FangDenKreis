@@ -3,381 +3,516 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Brain & Reflex Challenge</title>
-  <!-- Google Font Fredoka One -->
+
+  <!-- FONT -->
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet" />
+
+  <!-- STYLE -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Favicon (verhindert 404) -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23e74c3c'/%3E%3C/svg%3E">
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,
+    %3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E
+    %3Ccircle cx='50' cy='50' r='45' fill='%23e74c3c'/%3E%3C/svg%3E">
 
-  <!-- Minimaler, kollisionsarmer CSS-Block NUR für Mind Switch -->
+  <!-- CLEAN SCREEN BASE -->
   <style>
     .hidden { display: none !important; }
-
-    /* Mind Switch Layout */
-    #mind-switch.hidden { display: none !important; }
-    #mind-switch { position: relative; width: 100%; height: 80vh; user-select: none; }
-
-    .ms-hud {
-      position: absolute; top: 12px; right: 12px; display: flex; gap: 16px;
-      font-weight: 700; background: rgba(0,0,0,0.15); padding: 6px 10px; border-radius: 10px;
-      z-index: 3;
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      font-family: 'Fredoka One', sans-serif;
+      background: #000;
     }
-    .ms-arena { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; }
-    .ms-side { outline: 2px solid rgba(255,255,255,0.08); transition: background 120ms ease; }
-    .ms-side.ms-ok   { background: rgba(0,200,0,0.25); }
-    .ms-side.ms-bad  { background: rgba(220,0,0,0.25); }
-    .ms-side.ms-hit  { animation: msHit 160ms ease; }
-    @keyframes msHit { from { transform: scale(0.995);} to { transform: scale(1);} }
-
-    .ms-prompt {
-      position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
-      font-size: clamp(28px, 5vw, 56px); font-weight: 800; text-shadow: 0 2px 8px rgba(0,0,0,0.35);
-      z-index: 2;
+    .app-screen {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
     }
-
-    .btn-back { position: absolute; left: 12px; bottom: 12px; z-index: 3; }
   </style>
 </head>
 
 <body>
-  <!-- Stats-Modal (verschoben INS <body>) -->
-  <div id="stats-modal" class="modal" style="display:none;">
-    <div class="modal-panel">
-      <button class="modal-close" aria-label="Schließen">×</button>
+<main id="app">
 
-      <div class="tabs">
-        <button class="tab-btn active" data-tab="now">Jetzt</button>
-        <button class="tab-btn" data-tab="history">Historie</button>
-      </div>
+<!-- ====================================================== -->
+<!-- INFO SCREEN -->
+<!-- ====================================================== -->
+<section id="screen-info" class="app-screen">
+  <h1>🔥 Finger-Fieber bei „Brain & Reflex Challenge“! 🔥</h1>
+  <p>Bist du bereit, deine Reflexe zu testen?</p>
+  <button id="info-continue">Weiter</button>
+</section>
 
-      <div class="tab-content" id="stats-tab-now">
-        <div class="stat-row"><span>Letzter Modus</span><strong id="s-last-mode">–</strong></div>
-        <div class="stat-row"><span>Punkte</span><strong id="s-score">0</strong></div>
-        <div class="stat-row"><span>Trefferquote</span><strong id="s-acc">0%</strong></div>
-        <div class="stat-row"><span>Ø Reaktionszeit</span><strong id="s-avg">0 s</strong></div>
-        <div class="stat-row"><span>Median RT</span><strong id="s-med">0 s</strong></div>
-        <div class="stat-row"><span>Best-Streak</span><strong id="s-beststreak">0</strong></div>
-        <div class="stat-row"><span>Hits/Minute</span><strong id="s-hpm">0</strong></div>
-        <div class="stat-row"><span>Spielzeit (Run)</span><strong id="s-duration">0 s</strong></div>
-        <div class="stat-row"><span>Spielzeit heute</span><strong id="s-today">0 s</strong></div>
-        <div class="stat-row"><span>7 Tage gesamt</span><strong id="s-7d">0 s</strong></div>
-        <div class="stat-row"><span>Gesamtspielzeit</span><strong id="s-total">0 s</strong></div>
-      </div>
+<!-- ====================================================== -->
+<!-- NAME SCREEN -->
+<!-- ====================================================== -->
+<section id="screen-name" class="app-screen hidden">
+  <h1>Willkommen!</h1>
+  <input type="text" id="name-input" placeholder="Nickname" />
+  <button id="name-submit">Spiel starten</button>
+</section>
 
-      <div class="tab-content" id="stats-tab-history" style="display:none;">
-        <div class="best-grid">
-          <div><small>Highscore (global)</small><strong id="b-bestscore">0</strong></div>
-          <div><small>Längste Session</small><strong id="b-longest">0 s</strong></div>
-          <div><small>Bester Ø-RT</small><strong id="b-avg">–</strong></div>
-          <div><small>Beste Quote</small><strong id="b-acc">–</strong></div>
-          <div><small>Beste HPM</small><strong id="b-hpm">–</strong></div>
-          <div><small>Tages-Streak</small><strong id="b-streak">0</strong></div>
-        </div>
+<!-- ====================================================== -->
+<!-- MENU SCREEN -->
+<!-- ====================================================== -->
+<section id="screen-menu" class="app-screen hidden">
+  <h1 id="app-title">Brain & Reflex Challenge</h1>
 
-        <h4>Letzte 5 Runden</h4>
-        <table class="stats-table" id="runs-table">
-          <thead><tr><th>Datum</th><th>Modus</th><th>Score</th><th>ØRT</th><th>Quote</th><th>Dauer</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
+  <div class="mode-buttons">
+    <button id="btn-visual">👁️ Visuelles Training</button>
+    <button id="btn-audio">🔊 Sound Challenge</button>
+    <button id="btn-grid">🎯 Richtungs-Training</button>
+    <button id="btn-gridtiming">⏱️ Timing-Training</button>
+    <button id="btn-memory">🧠 Gedächtnis-Training</button>
+    <button id="btn-shape-shift">🔺 Shape Shift</button>
+    <button id="btn-mind">🔄 Mind Switch</button>
+    <button id="btn-maze">⚡ Reaction Maze</button>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- CLASSIC SCREEN (Legacy Modal-Auswahl) -->
+<!-- ====================================================== -->
+<section id="screen-classic" class="app-screen hidden">
+
+  <div id="score-box">Punkte: <span id="score">0</span></div>
+  <div id="timer-box">Zeit: <span id="timer">30</span>s</div>
+  <div id="streak-box">Streak: <span id="streak">0</span></div>
+
+  <div id="game">
+    <div id="circle"></div>
+    <div id="circle2" style="display:none"></div>
+    <div id="circle3" style="display:none"></div>
+    <div id="circle4" style="display:none"></div>
+    <div id="grid-game" style="display:none"></div>
   </div>
 
-  <!-- Info / Einleitung -->
-  <div id="info-screen">
-    <h1>🔥 Finger-Fieber bei „Brain & Reflex Challenge“! 🔥</h1>
-    <p>Bist du bereit, deine Reflexe auf die Probe zu stellen? In „Brain & Reflex Challenge“ geht’s darum, so schnell wie möglich auf die bunten Kreise zu tippen. Je schneller du bist und je seltener du danebenklickst, desto höher klettert dein Punktestand!</p>
-    <p>Wähle zwischen drei Schwierigkeitsgraden oder trainiere deine Skills im Trainingsmodus.</p>
-    <p>Und keine Sorge: Dein Name bleibt anonym – nimm lieber einen coolen Nickname wie „BlitzFinger“ oder „Kreisjäger“!</p>
-    <p class="ps">PS: Ich übernehme keine Verantwortung für fliegende Finger oder abstürzende Geräte. 😉</p>
-    <button id="info-continue">Weiter</button>
-  </div>
+  <button id="back-button" class="btn-back" style="position:absolute; left:12px; bottom:12px;">Zurück zum Menü</button>
 
-  <!-- Namenseingabe -->
-  <div id="name-screen" style="display: none;">
-    <h1>Willkommen!</h1>
-    <p>Wie möchtest du heißen?</p>
-    <input type="text" id="name-input" placeholder="z. B. KlickHeld123" />
-    <br />
-    <small style="color: #e67e22;">
-      ⚠️ Bitte gib keinen echten Namen ein (z. B. „Max Mustermann“).<br />
-      Nimm lieber einen Fantasienamen wie „Klick-König“ oder „ReaktionsHeld123“!
-    </small>
-    <br /><br />
-    <button id="name-submit">Spiel starten</button>
-  </div>
-
-  <!-- Start-Screen -->
-  <div id="start-screen" style="display: none;">
-    <div class="decor-wrapper">
-      <span class="decor-circle" style="--top: 60px;  --left: 50px;  --color: #e74c3c;"></span>
-      <span class="decor-circle" style="--top: 140px; --left: 30px;  --color: #f1c40f;"></span>
-      <span class="decor-circle" style="--top: 140px; --left: 260px; --color: #2ecc71;"></span>
-      <span class="decor-circle" style="--top: 200px; --left: 90px;  --color: #3498db;"></span>
-      <span class="decor-circle" style="--top: 200px; --left: 220px; --color: #9b59b6;"></span>
-    </div>
-
-    <div class="header">
-      <h1 id="app-title">Brain & Reflex Challenge</h1>
-
-      <div class="mode-buttons">
-        <div>
-          <button id="btn-visual">Visuelles Training (Speed-Modi)</button>
-        </div>
-        <div>
-          <button id="btn-audio">Sound Challenge (Hör-Reaktion)</button>
-        </div>
-        <div>
-          <button id="btn-grid">Richtungs-Training (3×3 Grid)</button>
-        </div>
-        <div>
-          <button id="btn-gridtiming">Timing-Training (Trefferfenster)</button>
-        </div>
-        <div>
-          <button id="btn-memory">Gedächtnis-Training (Simon Sagt)</button>
-        </div>
-        <div>
-          <button id="btn-shape-shift">Shape Shift (Farben oder Formen fangen)</button>
-        </div>
-        <!-- NEU: Mind Switch Button -->
-        <div>
-          <button id="btn-mind">Mind Switch (Reaktion &amp; Verstand)</button>
-
-        </div>
-      </div>
-    </div>
-
-    <!-- Visuelles Modal -->
-    <div id="visual-modal" class="modal" style="display:none;">
-      <div class="modal-content">
-        <button class="modal-close">&times;</button>
-        <h2>Visuelles Training (Speed-Modi)</h2>
-        <div class="button-row">
-          <button id="btn-easy">Leicht 🔴</button>
-          <button id="btn-medium">Mittel 🔴</button>
-          <button id="btn-hard">Schwer 🔴</button>
-          <button id="btn-training">Trainingsmodus 🔴</button>
-        </div>
-        <div id="mode-highscores" style="margin-top:1rem; text-align:center;">
-          <h3>Punkte in Leicht 🔴, Mittel 🔴, Schwer 🔴</h3>
-          <ul style="list-style:none; padding:0;">
-            <li>Einfach 🔴: <span id="hs-easy">272</span> / 333</li>
-            <li>Mittel 🔴: <span id="hs-medium">237</span> / 333</li>
-            <li>Schwer 🔴: <span id="hs-hard">86</span> / 333</li>
-            <li>Gesamt: <span id="hs-total">595</span> / 999</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-
-    <!-- Audio Modal -->
-    <div id="audio-modal" class="modal" style="display:none;">
-      <div class="modal-content">
-        <button class="modal-close">&times;</button>
-        <h2>Sound Challenge (Hör-Reaktion)</h2>
-        <div class="button-row">
-          <button id="btn-easyaudio">Leicht 👂</button>
-          <button id="btn-mediaudio">Mittel 🎧</button>
-          <button id="btn-hardaudio">Schwer 🎶</button>
-          <button id="btn-timedtrain">Audio-Training ⏱️</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Grid Modal -->
-    <div id="grid-modal" class="modal" style="display:none;">
-      <div class="modal-content">
-        <button class="modal-close">&times;</button>
-        <h2>Richtungs-Training (3×3 Grid)</h2>
-        <p>Tippe immer das farblich markierte Feld. Du hast 30 Sekunden.</p>
-        <div class="button-row">
-          <button id="btn-grid-easy">Leicht (nur linke/rechte Spalte – inkl. Ecken)</button>
-          <button id="btn-grid-medium">Mittel (Oben/Links/Rechts/Unten)</button>
-          <button id="btn-grid-hard">Schwer (Alle 9 Felder)</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- GridTiming-Modal -->
-    <div id="gridtiming-modal" class="modal" style="display:none;">
-      <div class="modal-content">
-        <button class="modal-close">&times;</button>
-        <h2>Timing-Training (Trefferfenster)</h2>
-        <p>Klicke das Feld genau im richtigen Zeitfenster. Zu früh/zu spät = Miss.</p>
-        <div class="button-row">
-          <button id="btn-gridtiming-easy">Leicht</button>
-          <button id="btn-gridtiming-medium">Mittel</button>
-          <button id="btn-gridtiming-hard">Schwer</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Shape Shift Modal (korrekt mit 3/4/5) -->
-    <div id="shape-modal" class="modal" style="display:none;">
-      <div class="modal-content">
-        <button class="modal-close" aria-label="Schließen">&times;</button>
-        <h2>Shape Shift</h2>
-        <p>Erkenne die Form und Farbe – tippe genau die geforderte Kombination.</p>
-        <div class="button-row">
-          <button id="btn-shape-easy">Leicht (3 Formen / 3 Farben)</button>
-          <button id="btn-shape-medium">Mittel (4 Formen / 4 Farben)</button>
-          <button id="btn-shape-hard">Schwer (5 Formen / 5 Farben)</button>
-        </div>
-      </div>
-    </div>
-
-<!-- NEU: Mind Switch Modal -->
-<div id="mind-modal" class="modal" style="display:none;">
-  <div class="modal-content">
-    <button class="modal-close" aria-label="Schließen">&times;</button>
-
-    <h2>Mind Switch – Reaktion &amp; Verstand</h2>
-    <p>
-      Dein Gehirn gegen seine eigenen Reflexe.<br>
-      Bei <strong>Leicht</strong> machst du genau, was dort steht.<br>
-      Bei <strong>Mittel</strong> täuscht dich die <em>Farbe des Wortes</em> – bleib konzentriert!<br>
-      Bei <strong>Schwer</strong> musst du entscheiden, ob du <em>lesen</em> oder <em>hören</em> sollst – blitzschnell! 👀🎧
-    </p>
-
-    <div class="button-row">
-      <button id="btn-mind-easy"   type="button">Leicht</button>
-      <button id="btn-mind-medium" type="button">Mittel</button>
-      <button id="btn-mind-hard"   type="button">Schwer</button>
-    </div>
-  </div>
-</div>
-
-
-
-
-    <!-- Neues Trainings-Intro-Modal -->
-    <div id="training-info-modal" class="modal" style="display:none;">
-      <div class="modal-content">
-        <button class="modal-close">&times;</button>
-        <h2>Trainingsmodus – Kurze Anleitung</h2>
-
-        <div class="section">
-          <h3>Was du tun musst:</h3>
-          <ul>
-            <li>Sobald der Kreis erscheint, klicke oder tippe ihn an.</li>
-            <li>Jeder Treffer gibt dir XP.</li>
-          </ul>
-        </div>
-
-        <div class="section">
-          <h3>Level-Up-System:</h3>
-          <p>Steige auf, wenn du genug Erfahrung gesammelt hast:</p>
-          <ul>
-            <li>🚀 <strong>Mehr Tempo:</strong> Die Challenge wird schärfer.</li>
-          </ul>
-        </div>
-
-        <label style="display:flex; align-items:center; gap:6px; margin-top:8px;">
-          <input type="checkbox" id="skip-training-intro" />
-          Diese Anleitung nicht mehr zeigen
-        </label>
-
-        <div style="margin-top:12px;">
-          <button id="start-training-confirm">Training starten</button>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Spielbereich -->
-  <div id="game-screen" style="display: none;">
-    <div id="score-box">Punkte: <span id="score">0</span></div>
-    <div id="timer-box">Zeit: <span id="timer">30</span>s</div>
-    <div id="streak-box">Streak: <span id="streak">0</span></div>
-
-    <!-- Audio-Training UI -->
-    <div id="audio-training-ui" style="display:none; margin-top:10px;">
-      <div id="audio-training-levelDisplay">Level 0</div>
-      <div id="audio-training-xpBar" style="background:#ddd; width:100%; height:12px; border-radius:6px; overflow:hidden;">
-        <div id="audio-training-xpFill" style="width:0%; height:100%; background:#27ae60;"></div>
-      </div>
-      <div id="audio-training-xpAmount">0 XP</div>
-    </div>
-
-    <!-- Timed-Training UI -->
-    <div id="timed-training-ui" style="display:none; margin-top:10px;">
-      <span id="training-time">60s</span>
-      <div id="train-level">Level 1</div>
-      <div style="background:#ddd; width:100%; height:12px; border-radius:6px; overflow:hidden;">
-        <div id="train-xp-fill" style="width:0%; height:100%; background:#27ae60;"></div>
-      </div>
-      <div id="train-xp-amount">0 XP</div>
-    </div>
-
-    <!-- Level & XP -->
-    <div id="levelDisplay">Level 0</div>
-    <div id="xpBar"><div id="xpFill"></div></div>
-    <div id="xpAmount">0 XP</div>
-
-    <button id="training-reset" style="display: none; margin:10px;">Training zurücksetzen</button>
-
-    <!-- Spielfeld -->
-    <div id="game">
-      <div id="circle"></div>
-      <div id="circle2" style="display: none;"></div>
-      <div id="circle3" style="display: none;"></div>
-      <div id="circle4" style="display: none;"></div>
-
-      <!-- Grid-Container -->
-      <div id="grid-game" style="display:none"></div>
-    </div>
-
-    <button id="back-button">Zurück zum Start</button>
-  </div>
-
-  <!-- NEU: Mind Switch Spielbereich (eigenständig) -->
-  <section id="mind-switch" class="hidden" aria-label="Mind Switch Spielbereich">
-    <div class="ms-hud">
-      <span id="ms-score">0</span>
-      <span id="ms-time">30.0s</span>
-    </div>
-
-    <div class="ms-arena">
-      <div id="ms-left"  class="ms-side" aria-label="linke Seite"  role="button" tabindex="0"></div>
-      <div id="ms-right" class="ms-side" aria-label="rechte Seite" role="button" tabindex="0"></div>
-      <div id="ms-prompt" class="ms-prompt" aria-live="polite">—</div>
-    </div>
-
-    <button id="ms-back" class="btn-back" type="button">Zurück zum Start</button>
-  </section>
-
-  <!-- Game Over Screen -->
-  <div id="game-over-screen" style="display: none; text-align:center;">
-    <h2>Spiel beendet!</h2>
-    <p><strong>Spieler:</strong> <span id="player-name-final"></span></p>
-    <p><strong>Punkte:</strong> <span id="final-score">0</span></p>
-    <p><strong>Reaktionszeit (Ø):</strong> <span id="final-reaction">0</span> s</p>
-    <p><strong>Trefferquote:</strong> <span id="final-accuracy">0%</span></p>
-    <p><strong>Verpasste Klicks:</strong> <span id="final-misses">0</span></p>
-    <p><strong>Bester Streak:</strong> <span id="final-best-streak">0</span></p>
-    <button id="restart-button">Weiter spielen</button>
-    <button id="gameover-back-button">Zurück zum Start</button>
-  </div>
-
-  <!-- Modal: Simon Sagt -->
-  <div id="memory-modal" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="memory-title" aria-hidden="true">
+  <!-- VISUAL MODAL -->
+  <div id="visual-modal" class="modal" style="display:none;">
     <div class="modal-content">
-      <button class="modal-close" aria-label="Schließen">&times;</button>
-      <h2 id="memory-title">Gedächtnis-Training – Simon Sagt</h2>
-      <p>Merke dir die Abfolge der aufleuchtenden Felder (3×3) und klicke sie in derselben Reihenfolge an. Die Sequenz wird nach jeder richtigen Runde länger.</p>
-
+      <button class="modal-close">&times;</button>
+      <h2>Visuelles Training</h2>
       <div class="button-row">
-        <button id="btn-simon-easy"   type="button">Leicht</button>
-        <button id="btn-simon-medium" type="button">Mittel</button>
-        <button id="btn-simon-hard"   type="button">Schwer</button>
+        <button id="btn-visual-easy">Leicht</button>
+        <button id="btn-visual-medium">Mittel</button>
+        <button id="btn-visual-hard">Schwer</button>
       </div>
     </div>
   </div>
 
-  <!-- Hauptskript -->
-  <script type="module" src="main.js"></script>
-</body>
-</html>
+  <!-- SOUND MODAL -->
+   
+
+
+  <!-- GRID MODAL -->
+  <div id="grid-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <button class="modal-close">&times;</button>
+      <h2>Richtungs-Training</h2>
+      <div class="button-row">
+        <button id="btn-grid-easy">Leicht</button>
+        <button id="btn-grid-medium">Mittel</button>
+        <button id="btn-grid-hard">Schwer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GRID TIMING MODAL -->
+  <div id="gridtiming-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <button class="modal-close">&times;</button>
+      <h2>Timing-Training</h2>
+      <div class="button-row">
+        <button id="btn-gridtiming-easy">Leicht</button>
+        <button id="btn-gridtiming-medium">Mittel</button>
+        <button id="btn-gridtiming-hard">Schwer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MEMORY MODAL -->
+  <div id="memory-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <button class="modal-close">&times;</button>
+      <h2>Gedächtnis-Training</h2>
+      <div class="button-row">
+        <button id="btn-simon-easy">Leicht</button>
+        <button id="btn-simon-medium">Mittel</button>
+        <button id="btn-simon-hard">Schwer</button>
+      </div>
+    </div>
+  </div>
+
+
+
+</section>
+
+<!-- ====================================================== -->
+<!-- SHAPE SHIFT PLAYSCREEN -->
+<!-- ====================================================== -->
+<section id="screen-shapeShift" class="app-screen hidden">
+
+  <!-- HUD (MASTER) -->
+  <div class="hud hud-master">
+    <div class="hud-left">
+      <span>Treffer <strong id="shapeShift-score">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span>Fehlklicks <strong id="shapeShift-misses">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span>Verpasst <strong id="shapeShift-missedTargets">0</strong></span>
+    </div>
+
+    <div class="hud-right">
+      <strong id="shapeShift-timer">30</strong>s
+    </div>
+  </div>
+
+
+
+  <!-- FREIES SPIELFELD -->
+  <div id="shapeShift-playfield" class="playfield">
+    <div id="shapeShift-hint" class="ss-hint">Klicke das Ziel</div>
+  </div>
+
+  <!-- BACK -->
+  <button id="shapeShift-back" class="btn-back">
+    Zurück zum Menü
+  </button>
+
+</section>
+
+
+
+<!-- ====================================================== -->
+<!-- LEERE SPIELSCREENS (werden durch JS gefüllt) -->
+<!-- ====================================================== -->
+<section id="screen-gridtiming" class="app-screen hidden">
+
+  <!-- HUD (MASTER) -->
+  <div class="hud hud-master">
+    <div class="hud-left">
+      <span>Treffer <strong id="gridtiming-score">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span>Fehlklicks <strong id="gridtiming-misses">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span>Serie <strong id="gridtiming-streak">0</strong></span>
+    </div>
+
+    <div class="hud-right">
+      <strong id="gridtiming-time">0.000</strong>s
+    </div>
+  </div>
+
+  <!-- PLAYFIELD (MASTER) -->
+  <div id="gridtiming-playfield" class="playfield">
+    <div id="gridtiming-board" class="gridtiming-board"></div>
+  </div>
+
+  <button id="gridtiming-back" class="btn-back" type="button">Zurück zum Menü</button>
+</section>
+
+
+<section id="screen-visual" class="app-screen hidden">
+
+  <div class="hud hud-master">
+    <div class="hud-left">
+      <span>Treffer <strong id="vs-score">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span class="hud-hide">Fehlklicks <strong id="vs-misses">0</strong></span>
+    </div>
+
+    <div class="hud-right">
+      <strong id="vs-time">30</strong>s
+    </div>
+  </div>
+
+  <div id="vs-arena" class="playfield">
+    <div class="ss-hint">Klicke den Kreis</div>
+  </div>
+
+  <button id="vs-back" class="btn-back">Zurück zum Menü</button>
+</section>
+
+<section id="screen-sound" class="app-screen hidden">
+
+  <!-- HUD (MASTER) -->
+  <div class="hud hud-master">
+    <div class="hud-left">
+      <span>Treffer <strong id="sd-score">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span>Fehlklicks <strong id="sd-misses">0</strong></span>
+    </div>
+
+    <div class="hud-right">
+      <strong id="sd-time">30</strong>s
+    </div>
+  </div>
+
+  <!-- Playfield (MASTER) -->
+  <div id="sd-arena" class="playfield">
+    <div id="sd-hint" class="sd-hint">Höre…</div>
+  </div>
+
+  <button id="sd-back" class="btn-back" type="button">Zurück zum Menü</button>
+</section>
+
+
+<section id="screen-mind" class="app-screen hidden"></section>
+<section id="screen-grid" class="app-screen hidden">
+
+  <!-- HUD (MASTER) -->
+  <div class="hud hud-master">
+    <div class="hud-left">
+      <span>Treffer <strong id="grid-score">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span>Fehlklicks <strong id="grid-misses">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span>Serie <strong id="grid-streak">0</strong></span>
+    </div>
+
+    <div class="hud-right">
+      <strong id="grid-time">30</strong>s
+    </div>
+  </div>
+
+  <!-- PLAYFIELD (MASTER) -->
+  <div id="grid-playfield" class="playfield">
+    <div id="grid-game" class="grid-board"></div>
+  </div>
+
+  <button id="grid-back" class="btn-back" type="button">Zurück zum Menü</button>
+</section>
+
+
+<section id="screen-memory" class="app-screen hidden">
+
+  <!-- HUD (MASTER) -->
+  <div class="hud hud-master">
+    <div class="hud-left">
+      <span>Punkte <strong id="memory-score">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span>Fehler <strong id="memory-misses">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span>Bestserie <strong id="memory-beststreak">0</strong></span>
+    </div>
+
+    <div class="hud-right">
+      <strong id="memory-time">30</strong>s
+    </div>
+  </div>
+
+  <!-- PLAYFIELD (MASTER) -->
+  <div class="playfield">
+    <div id="memory-grid" class="grid-board"></div>
+  </div>
+
+  <button id="memory-back" class="btn-back" type="button">Zurück zum Menü</button>
+</section>
+
+
+
+<section id="screen-difficulty" class="app-screen hidden difficulty-screen" style="color:#fff; text-align:center; padding-top:32px;">
+  <h2 id="difficulty-title">–</h2>
+
+  <div class="difficulty-buttons">
+    <button data-diff="easy">Leicht</button>
+    <button data-diff="medium">Mittel</button>
+    <button data-diff="hard">Schwer</button>
+  </div>
+
+  <button id="difficulty-back" class="btn-back" style="margin-top:24px;">
+    Zurück zum Menü
+  </button>
+</section>
+
+
+
+
+
+<!-- ====================================================== -->
+<!-- RESULTS -->
+<!-- ====================================================== -->
+
+<!-- Visual RESULT -->
+<section id="screen-visual-result" class="app-screen hidden" style="color:#fff; text-align:center; padding-top:28px;">
+  <h2>Visuelles Training – Ergebnis</h2>
+
+  <p>Modus: <strong><span id="vs-res-diff">–</span></strong></p>
+  <p>Klicks: <strong><span id="vs-res-steps">0</span></strong></p>
+  <p>Ø Reaktionszeit: <strong><span id="vs-res-avg">0 ms</span></strong></p>
+  <p>Fehlklicks: <strong><span id="vs-res-misses">0</span></strong></p>
+  <p>Ende durch: <strong><span id="vs-res-endreason">–</span></strong></p>
+
+  <div class="button-row">
+    <button id="vs-res-retry">Nochmals spielen</button>
+    <button id="vs-res-menu">Zurück zum Menü</button>
+  </div>
+</section>
+
+<!-- SOUND RESULT -->
+<section id="screen-sound-result" class="app-screen hidden" style="color:#fff; text-align:center; padding-top:28px;">
+  <h2>Sound Challenge – Ergebnis</h2>
+
+  <p>Modus: <strong><span id="snd-res-diff">–</span></strong></p>
+  <p>Treffer: <strong><span id="snd-res-score">0</span></strong></p>
+  <p>Ø Reaktionszeit: <strong><span id="snd-res-avg">0 ms</span></strong></p>
+  <p>Fehlklicks: <strong><span id="snd-res-misses">0</span></strong></p>
+  <p>Ende durch: <strong><span id="snd-res-endreason">–</span></strong></p>
+
+  <div class="button-row">
+    <button id="sound-res-retry">Nochmals spielen</button>
+    <button id="sound-res-menu">Zurück zum Menü</button>
+  </div>
+</section>
+
+<!-- GRID RESULT -->
+<section id="screen-grid-result" class="app-screen hidden" style="color:#fff; text-align:center; padding-top:28px;">
+  <h2>Richtungs-Training – Ergebnis</h2>
+
+  <p>Modus: <strong><span id="grid-res-diff">–</span></strong></p>
+  <p>Richtige Klicks: <strong><span id="grid-res-score">0</span></strong></p>
+  <p>Ø Reaktionszeit: <strong><span id="grid-res-avg">0 ms</span></strong></p>
+  <p>Fehlklicks: <strong><span id="grid-res-misses">0</span></strong></p>
+  <p>Ende durch: <strong><span id="grid-res-endreason">–</span></strong></p>
+
+  <button id="grid-res-retry">Nochmals spielen</button>
+  <button id="grid-res-menu">Zurück zum Menü</button>
+</section>
+
+<!-- GRID TIMING RESULT -->
+<section id="screen-gridtiming-result" class="app-screen hidden" style="color:#fff; text-align:center; padding-top:28px;">
+  <h2>Timing-Training – Ergebnis</h2>
+
+  <p>Modus: <strong><span id="gt-res-diff">–</span></strong></p>
+  <p>Richtige Klicks: <strong><span id="gt-res-score">0</span></strong></p>
+  <p>Ø Abweichung: <strong><span id="gt-res-avg">0 ms</span></strong></p>
+  <p>Fehlklicks: <strong><span id="gt-res-misses">0</span></strong></p>
+  <p>Ende durch: <strong><span id="gt-res-endreason">–</span></strong></p>
+
+  <button id="gt-res-retry">Nochmals spielen</button>
+  <button id="gt-res-menu">Zurück zum Menü</button>
+</section>
+
+<!-- MEMORY RESULT -->
+<section id="screen-memory-result" class="app-screen hidden" style="color:#fff; text-align:center; padding-top:28px;">
+  <h2>Gedächtnis-Training – Ergebnis</h2>
+
+  <p>Modus: <strong><span id="mem-res-diff">–</span></strong></p>
+  <p>Richtige Sequenzen: <strong><span id="mem-res-score">0</span></strong></p>
+  <p>Fehler: <strong><span id="mem-res-misses">0</span></strong></p>
+  <p>Streak: <strong><span id="mem-res-streak">0</span></strong></p>
+  <p>Accuracy: <strong><span id="mem-res-accuracy">0%</span></strong></p>
+
+  <button id="mem-res-retry">Nochmals spielen</button>
+  <button id="mem-res-menu">Zurück zum Menü</button>
+</section>
+
+<!-- SHAPE SHIFT RESULT -->
+<section id="screen-shapeShift-result" class="app-screen hidden" style="color:#fff; text-align:center; padding-top:28px;">
+  <h2>Shape Shift – Ergebnis</h2>
+
+  <p>Modus: <strong><span id="shapeShift-result-mode">–</span></strong></p>
+  <p>Treffer: <strong><span id="shapeShift-result-score">0</span></strong></p>
+  <p>Fehlklicks: <strong><span id="shapeShift-result-misses">0</span></strong></p>
+  <p><span id="shapeShift-result-target"></span></p>
+
+  <button id="shapeShift-res-retry">Nochmals spielen</button>
+  <button id="shapeShift-res-menu">Zurück zum Menü</button>
+</section>
+
+<!-- MIND SWITCH RESULT -->
+<section id="screen-mind-result" class="app-screen hidden" style="color:#fff; text-align:center; padding-top:28px;">
+  <h2>Mind Switch – Ergebnis</h2>
+
+  <p>Modus: <strong><span id="mind-res-mode">–</span></strong></p>
+  <p>Treffer: <strong><span id="mind-res-hits">0</span></strong></p>
+  <p>Fehlklicks: <strong><span id="mind-res-misses">0</span></strong></p>
+  <p>Beste Serie: <strong><span id="mind-res-streak">0</span></strong></p>
+  <p>Ø Reaktionszeit: <strong><span id="mind-res-avg">0 ms</span></strong></p>
+  <p>Trefferquote: <strong><span id="mind-res-acc">0%</span></strong></p>
+  <p>Ende durch: <strong><span id="mind-res-reason">–</span></strong></p>
+
+  <button id="mind-res-retry">Nochmals spielen</button>
+  <button id="mind-res-menu">Zurück zum Menü</button>
+</section>
+
+<!-- MAZE SCREEN -->
+<section id="screen-maze" class="app-screen hidden">
+  <div id="maze-overlay"></div>
+</section>
+
+<!-- MAZE RESULT -->
+<section id="screen-maze-result" class="app-screen hidden" style="color:#fff; text-align:center; padding-top:28px;">
+  <h2>Reaction Maze – Ergebnis</h2>
+
+  <p>Modus: <strong><span id="maze-res-diff">–</span></strong></p>
+  <p>Schritte geschafft: <strong><span id="maze-res-steps">0</span></strong></p>
+  <p>Ø Reaktionszeit: <strong><span id="maze-res-avg">0 ms</span></strong></p>
+  <p>Benötigte Zeit: <strong><span id="maze-res-time">–</span> s</strong></p>
+  <p>Ende durch: <strong><span id="maze-res-endreason">–</span></strong></p>
+
+  <button id="maze-res-retry">Nochmals spielen</button>
+  <button id="maze-res-menu">Zurück zum Menü</button>
+</section>
+
+<!-- ====================================================== -->
+<!-- SCRIPT IMPORTS – Final Project Structure -->
+<!-- ====================================================== -->
+
+<!-- Reaction Maze -->
+<script type="module" src="reactionMaze/reactionMazeCore.js"></script>
+<script type="module" src="reactionMaze/reactionMazeRunner.js"></script>
+
+<!-- Visual -->
+<script type="module" src="visual/visualCore.js"></script>
+<script type="module" src="visual/visualRunner.js"></script>
+<script type="module" src="visual/visualEasy.js"></script>
+<script type="module" src="visual/visualMedium.js"></script>
+<script type="module" src="visual/visualHard.js"></script>
+
+<!-- Sound -->
+<script type="module" src="sound/soundRunner.js"></script>
+<script type="module" src="sound/soundCore.js"></script>
+<script type="module" src="sound/soundEasy.js"></script>
+<script type="module" src="sound/soundMedium.js"></script>
+<script type="module" src="sound/soundHard.js"></script>
+
+
+<!-- Grid -->
+<script type="module" src="grid/gridCore.js"></script>
+<script type="module" src="grid/gridRunner.js"></script>
+
+<!-- Grid Timing -->
+<script type="module" src="gridTiming/gridTimingConfig.js"></script>
+<script type="module" src="gridTiming/gridTimingCore.js"></script>
+<script type="module" src="gridTiming/gridTimingRunner.js"></script>
+
+<!-- Memory -->
+<script type="module" src="memory/simonRunner.js"></script>
+<script type="module" src="memory/simonEasy.js"></script>
+<script type="module" src="memory/simonMedium.js"></script>
+<script type="module" src="memory/simonHard.js"></script>
+
+<!-- Mind Switch -->
+<script type="module" src="mindSwitch/mindSwitchCore.js"></script>
+<script type="module" src="mindSwitch/mindSwitchRunner.js"></script>
+<script type="module" src="mindSwitch/mindSwitchEasy.js"></script>
+<script type="module" src="mindSwitch/mindSwitchMedium.js"></script>
+<script type="module" src="mindSwitch/mindSwitchHard.js"></script>
+
+<!-- Shape Shift -->
+<script type="module" src="shapeShift/shapeShiftCore.js"></script>
+<script type="module" src="shapeShift/shapeShiftRunner.js"></script>
+<script type="module" src="shapeShift/shapeShiftEasy.js"></script>
+<script type="module" src="shapeShift/shapeShiftMedium.js"></script>
+<script type="module" src="shapeShift/shapeShiftHard.js"></script>
+
+<!-- Screen Manager + Main -->
+<script type="module" src="screens.js"></script>
+<script type="module" src="difficultySelect.js"></script>
+<script type="module" src="main.js"></script>

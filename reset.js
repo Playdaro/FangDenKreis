@@ -2,9 +2,15 @@
 const _intervals = new Set();
 const _listeners = [];
 
-/** Merker für Intervals/Timeouts */
-export function registerInterval(id) {
-  if (id) _intervals.add(id);
+/**
+ * Merker für Intervals:
+ * - erzeugt ein setInterval
+ * - speichert die ID für späteres Aufräumen
+ */
+export function registerInterval(callback, ms) {
+  const id = setInterval(callback, ms);
+  _intervals.add(id);
+  return id;
 }
 
 /** Bequemer Wrapper: fügt Listener hinzu und merkt ihn sich automatisch */
@@ -14,15 +20,28 @@ export function addManagedListener(target, type, fn, options) {
   _listeners.push({ target, type, fn, options });
 }
 
-/** Entfernt ALLE bekannten Timer, Listener, versteckt Kreise, leert Grid, setzt HUD */
+/**
+ * Entfernt ALLE bekannten Timer, Listener, versteckt Kreise, leert Grid, setzt HUD.
+ * Mit Flags steuerbar:
+ *  - ui:    UI zurücksetzen (Score, Timer, Grid, etc.)
+ *  - state: globales window.gameState zurücksetzen
+ *  - audio: Startscreen-Musik o.ä. stoppen
+ */
 export function resetGameState({ ui = true, state = true, audio = true } = {}) {
   // 1) Timer/Timeouts killen
-  _intervals.forEach(id => { clearInterval(id); clearTimeout(id); });
+  _intervals.forEach(id => {
+    clearInterval(id);
+    clearTimeout(id);
+  });
   _intervals.clear();
 
   // 2) Event-Listener entfernen
   for (const { target, type, fn, options } of _listeners) {
-    target.removeEventListener(type, fn, options);
+    try {
+      target.removeEventListener(type, fn, options);
+    } catch {
+      // ignoriere kaputte Targets
+    }
   }
   _listeners.length = 0;
 
@@ -32,8 +51,12 @@ export function resetGameState({ ui = true, state = true, audio = true } = {}) {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
+
     const grid = document.getElementById('grid-game');
-    if (grid) { grid.innerHTML = ''; grid.style.display = 'none'; }
+    if (grid) {
+      grid.innerHTML = '';
+      grid.style.display = 'none';
+    }
 
     // HUD auf Standardwerte
     setText('score', 0);
@@ -43,7 +66,7 @@ export function resetGameState({ ui = true, state = true, audio = true } = {}) {
     setText('xpAmount', '0 XP');
     setWidth('xpFill', '0%');
 
-    // optional: spezielle Trainingsanzeigen zurücksetzen
+    // optionale Trainingsanzeigen zurücksetzen
     setText('audio-training-levelDisplay', 'Level 0');
     setText('audio-training-xpAmount', '0 XP');
     setWidth('audio-training-xpFill', '0%');
@@ -67,7 +90,11 @@ export function resetGameState({ ui = true, state = true, audio = true } = {}) {
 
   // 5) Audio anhalten (falls Startscreen-Musik o. ä.)
   if (audio && typeof window.stopStartscreenMusic === 'function') {
-    window.stopStartscreenMusic();
+    try {
+      window.stopStartscreenMusic();
+    } catch {
+      // egal
+    }
   }
 }
 

@@ -1,635 +1,625 @@
-/* Allgemeines Layout */
+/* ======================================================
+   MAIN MENU / START SCREEN (FINAL FIX)
+   ====================================================== */
+#screen-start,
+#screen-menu {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+  padding: 24px;
+  gap: 16px;
+}
+/* ======================================================
+   INFO SCREEN (START / INTRO)
+   ====================================================== */
+#screen-info {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;      /* horizontal */
+  justify-content: center;  /* vertikal */
+
+  text-align: center;
+  padding: 24px;
+  gap: 16px;
+}
+/* ======================================================
+   NAME SCREEN (NICKNAME)
+   ====================================================== */
+#screen-name {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;      /* horizontal zentriert */
+  justify-content: center;  /* vertikal zentriert */
+
+  text-align: center;
+  padding: 24px;
+  gap: 16px;
+}
+#screen-name input[type="text"] {
+  width: min(92vw, 360px);
+  padding: 14px 16px;
+  font-size: 1.2rem;
+  border-radius: 10px;
+  border: none;
+  outline: none;
+  text-align: center;
+}
+#screen-name button {
+  width: min(92vw, 360px);
+  margin-top: 8px;
+  font-size: 1.1rem;
+}
+/* MASTER PLAYFIELD – für ALLE Modi */
+.playfield {
+  position: relative;
+  width: min(92vw, 520px);
+  height: min(92vw, 520px);
+  margin: 72px auto 0;
+  border-radius: 16px;
+  overflow: hidden;
+
+  background: rgba(255,255,255,0.04);
+  border: 2px solid rgba(255,255,255,0.14);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.55);
+}
+
+
+
+/* ======================================================
+   01 — BASE / RESET
+   ====================================================== */
+* {
+  box-sizing: border-box;
+}
+
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  font-family: Arial, sans-serif;
-  background-color: #f0f0f0;
-  text-align: center;
-  -webkit-text-size-adjust: 100%;
-  overflow-x: hidden;
-}
-
-body { position: relative; }
-
-/* Safe area support (iOS notch etc.) */
-#start-screen {
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-/* Typografie */
-h1, h2 {
-  color: #333;
-  margin: 0.25em 0;
-}
-
-/* Buttons: responsive, touchfreundlich */
-button {
-  padding: 12px 18px;
-  margin: 6px;
-  font-size: clamp(14px, 4vw, 18px);
-  cursor: pointer;
-  border: none;
-  border-radius: 6px;
-  background-color: #007bff;
-  color: white;
-  transition: transform .1s ease, filter .2s ease, background-color .2s ease;
-  min-height: 44px; /* Touchziel */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-button:active { transform: scale(0.97); }
-button:focus-visible { outline: 3px solid #ffe066; outline-offset: 2px; }
-button:hover { filter: brightness(1.05); }
-button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* Bildschirme */
-#start-screen,
-#name-screen,
-#info-screen,
-#game-screen,
-#game-over-screen,
-#training-end-screen {
-  padding: 20px;
-  display: none;
-  box-sizing: border-box;
-}
-
-/* Info-Screen in Fredoka One */
-#info-screen { font-family: 'Fredoka One', cursive; }
-
-/* Game-Screen */
-#game-screen {
-  position: relative;
-  height: 100%;
-  max-width: 1000px;
-  margin: 0 auto;
-}
-#game {
-  position: relative;
-  width: 100%;
-  max-width: 600px;
-  height: 400px;
-  margin: 20px auto;
-  background-color: white;
-  border: 2px solid #ccc;
-  overflow: hidden;           /* wichtig: nix überlaufen lassen */
-  border-radius: 10px;
-}
-
-/* Kreise im Spiel */
-#circle,
-#circle2,
-#circle3,
-#circle4 {
-  position: absolute;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background-color: red;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-#circle.training {
-  background-color: green !important;
-  width: 60px;
-  height: 60px;
-}
-
-/* Anzeigeelemente */
-#score-box,
-#timer-box {
-  margin: 10px;
-  font-size: 20px;
-}
-#streak-box {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: #2c3e50;
-  color: #f1f1f1;
-  padding: 6px 12px;
-  border-radius: 14px;
-  font-size: 14px;
-  font-weight: 600;
-  box-shadow: 0 2px 6px rgba(0,0,0,.25);
-  opacity: .9;
-}
-#streak-box.streak-pop { animation: streakPop .3s ease; }
-@keyframes streakPop {
-  0%   { transform: scale(1); }
-  35%  { transform: scale(1.25); }
-  100% { transform: scale(1); }
-}
-
-/* Level- & XP-Anzeige */
-#levelDisplay { margin: 10px 0; font-size: 18px; color: #333; }
-#xpBar {
-  width: 80%;
-  height: 10px;
-  background-color: #ccc;
-  margin: 5px auto;
-  border-radius: 5px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #000;
+  color: #fff;
   overflow: hidden;
 }
-#xpFill {
-  width: 0%;
-  height: 100%;
-  background-color: #4caf50;
-  transition: width 0.3s ease;
-}
-#xpAmount { margin: 5px 0; font-size: 16px; color: #333; }
 
-/* Training-End Screen */
-#training-end-screen {
-  background: #222;
-  color: #fff;
-  padding: 24px 28px;
-  max-width: 420px;
-  margin: 40px auto;
-  border-radius: 12px;
-  box-shadow: 0 4px 18px rgba(0,0,0,.35);
-}
-#training-end-screen button {
-  margin: 6px 8px;
-  padding: 10px 18px;
+button {
+  font: inherit;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: none;
   cursor: pointer;
+  background: #1e90ff;
+  color: #fff;
+  font-weight: 600;
 }
 
-/* Miss-Feedback */
-#game.miss-flash {
-  outline: 3px solid #e74c3c;
-  animation: missPulse 120ms ease-out;
-}
-@keyframes missPulse {
-  0%   { transform: scale(1); }
-  50%  { transform: scale(1.02); }
-  100% { transform: scale(1); }
+button:hover { background: #3aa0ff; }
+button:active { transform: scale(0.97); }
+
+/* ======================================================
+   02 — CLEAN SCREEN SYSTEM
+   ====================================================== */
+.app-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
 }
 
-/* Icon-Circle */
-.icon-circle {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: red;
-  margin-right: 6px;
-  vertical-align: middle;
+.app-screen:not(.hidden) {
+  display: block;
 }
 
-/* Modals */
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5);
-  display: none;                 /* Default: versteckt */
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.modal-content {
-  background: #fff;
-  padding: 1.5rem;
-  padding-right: 3.25rem;        /* Platz für den Close-Button */
-  border-radius: 0.5rem;
-  max-width: 90%;
-  width: 300px;
-  text-align: center;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-  position: relative;
+.hidden { display: none !important; }
+
+/* ======================================================
+   03 — COMMON HUD (Score / Timer)
+   ====================================================== */
+.hud {
+  position: absolute;
+  top: 12px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 14px;
+  font-size: 22px;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 5;
 }
 
-/* Fix: Close-Button soll sich an Modal-Box orientieren */
-.modal {
-  position: fixed;
-  top: 0; left: 0;
+.hud span {
+  pointer-events: auto;
+}
+
+/* ======================================================
+   04 — COMMON BACK BUTTON
+   ====================================================== */
+.btn-back {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e90ff;
+}
+
+/* ======================================================
+   GRID – EINHEITLICHE BASIS (ALLE GRID-MODI)
+   ====================================================== */
+
+
+
+.grid-cell {
+  background: #222;
+  border-radius: 14px;
+  border: 2px solid #444;
+  transition: background 120ms ease, transform 80ms ease;
+}
+
+/* ======================================================
+   06 — SIMON MODE
+   ====================================================== */
+#screen-memory {
+  background: #000;
+}
+
+/* ======================================================
+   SIMON HUD – ANGLEICH AN GRID / GRIDTIMING
+   ====================================================== */
+#screen-memory .memory-hud {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: min(90vw, 380px);
+  display: flex;
+  justify-content: space-between;
+
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  z-index: 5;
+}
+
+/* GRID */
+#screen-memory .grid-game {
+  margin-top: 72px; /* Platz für HUD */
+}
+/* ======================================================
+   GRID – 3×3 Master Layout
+   ====================================================== */
+
+#grid-game.grid-board{
   width: 100%;
   height: 100%;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.6);
-  z-index: 999;
-}
-
-.modal .modal-content {
-  position: relative;  /* sorgt dafür, dass das "X" oben rechts in der Box bleibt */
-}
-
-
-.modal .modal-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 34px;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 80, 80, 0.25);     /* zarter roter Glas-Look */
-  border-radius: 999px;
-  color: #ff3b30;                          /* kräftiges X */
-  font-weight: 700;
-  font-size: 22px;
-  border: 1px solid rgba(255,255,255,0.4); /* dünner Rahmen */
-  backdrop-filter: blur(4px);              /* leicht verschwommenes Glas */
-  cursor: pointer;
-  transition: all 0.25s ease;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-}
-
-.modal .modal-close:hover {
-  background: rgba(255, 80, 80, 0.8);      /* intensiver beim Hover */
-  color: #fff;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.35);
-  transform: scale(1.08);
-}
-
-
-.modal .modal-close:focus-visible {
-  outline: 2px solid #ff3b30;
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* Sanfter Farb-Wellen-Hintergrund für den Start-Screen */
-@keyframes colorWave {
-  0%   { background-color: #e74c3c; }
-  20%  { background-color: #f1c40f; }
-  40%  { background: #2ecc71; }
-  60%  { background: #3498db; }
-  80%  { background: #9b59b6; }
-  100% { background-color: #e74c3c; }
-}
-#start-screen {
-  position: relative;
-  z-index: 1;
-  animation: colorWave 20s linear infinite;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden; /* kein Scroll */
-  padding: 0 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 12px;
+  padding: 14px;
   box-sizing: border-box;
 }
 
-/* Wrapper für dekorative Kreise */
-.decor-wrapper {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Header-Inhalt (Titel + Buttons) oben zentriert */
-.header { z-index: 2; text-align: center; margin: 0; }
-
-/* Modus-Buttons gruppieren */
-.mode-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  width: 100%;
-  max-width: 500px;
-}
-@media (min-width: 600px) {
-  .mode-buttons { flex-direction: row; }
-}
-
-/* Dekorative Kreise hinter Text, responsive Größe */
-.decor-circle {
-  position: absolute;
-  top: var(--top);
-  left: var(--left);
-  width: clamp(12px, 3vw, 20px);
-  height: clamp(12px, 3vw, 20px);
-  border-radius: 50%;
-  background-color: var(--color);
-  opacity: 0.3;
-  pointer-events: none;
-  will-change: left, top;
-}
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  #start-screen { animation: none; }
-  .decor-circle {
-    transition: opacity .6s ease-in-out;
-    animation: decorPulse 3s infinite alternate;
-  }
-  @keyframes decorPulse {
-    from { opacity: 0.25; }
-    to   { opacity: 0.4; }
-  }
-}
-
-/* ===== 3×3 Grid-Modus =====
-   Wichtig: Größe so wählen, dass das Quadrat NIE höher als #game (400px) wird */
-#grid-game {
-  width: min(100%, 90vmin, 400px);   /* passt immer in den 400px hohen Container */
-  aspect-ratio: 1 / 1;
-  max-height: 100%;
-  margin: 12px auto;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+#grid-game .grid-cell{
+  border-radius: 14px;
+  background: rgba(255,255,255,0.05);
+  border: 2px solid rgba(255,255,255,0.10);
+  transition: transform 80ms ease, background 120ms ease, border-color 120ms ease;
   touch-action: manipulation;
 }
 
-.grid-cell {
+#grid-game .grid-cell.active{
+  background: rgba(46, 204, 113, 0.22);
+  border-color: rgba(46, 204, 113, 0.55);
+  transform: scale(1.02);
+}
+
+#grid-game .grid-cell.hit{
+  background: rgba(46, 204, 113, 0.30);
+  border-color: rgba(46, 204, 113, 0.85);
+}
+
+#grid-game .grid-cell.miss{
+  background: rgba(231, 76, 60, 0.25);
+  border-color: rgba(231, 76, 60, 0.70);
+}
+
+
+/* SIMON CELLS */
+#screen-memory .simon-cell {
+  width: 100%;
+  height: 100%;
+  background: #333;
+  border: 2px solid #666;
+  cursor: pointer;
+}
+
+#screen-memory .simon-cell.simon-active {
+  background: #f1c40f;
+}
+
+#screen-memory .simon-cell:active {
+  background: #2ecc71;
+}
+
+/* INPUT DISABLED */
+#screen-memory.simon-disabled .simon-cell {
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+/* ======================================================
+   GRID TIMING – 3×3 Master Layout
+   ====================================================== */
+
+#gridtiming-board.gridtiming-board{
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 12px;
+  padding: 14px;
+  box-sizing: border-box;
+}
+
+#gridtiming-board .gridtiming-cell{
   border-radius: 14px;
-  background: #222;
-  border: 2px solid #444;
-  transition: transform 80ms ease, background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  background: rgba(255,255,255,0.05);
+  border: 2px solid rgba(255,255,255,0.10);
+  transition: transform 80ms ease, background 80ms ease, border-color 80ms ease;
+  user-select: none;
+  padding: 0;
+  aspect-ratio: 1 / 1;
+  color: rgba(255,255,255,0.85);
+  font-size: 1.1rem;
+}
+
+#gridtiming-board .gridtiming-cell.is-red{
+  background: rgba(231, 76, 60, 0.22);
+  border-color: rgba(231, 76, 60, 0.55);
+  transform: scale(1.02);
+}
+
+#gridtiming-board .gridtiming-cell.is-green{
+  background: rgba(46, 204, 113, 0.28);
+  border-color: rgba(46, 204, 113, 0.75);
+  transform: scale(1.05);
+}
+
+#gridtiming-board .gridtiming-cell.is-wrong{
+  background: rgba(231, 76, 60, 0.35);
+  border-color: rgba(231, 76, 60, 0.90);
+}
+
+/* ======================================================
+   SIMON – 3×3 Master Layout
+   ====================================================== */
+#memory-grid.grid-board{
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 12px;
+  padding: 14px;
+  box-sizing: border-box;
+}
+
+/* Simon nutzt grid-cell als Basis */
+#memory-grid .grid-cell{
+  border-radius: 14px;
+  background: rgba(255,255,255,0.05);
+  border: 2px solid rgba(255,255,255,0.10);
+  transition: transform 80ms ease, background 80ms ease, border-color 80ms ease;
+  user-select: none;
+  padding: 0;
+}
+
+/* Highlight beim Anzeigen / beim Klick */
+#memory-grid .simon-active{
+  background: rgba(52, 152, 219, 0.25);
+  border-color: rgba(52, 152, 219, 0.70);
+  transform: scale(1.03);
+}
+
+/* Input sperren */
+#memory-grid.simon-disabled{
+  pointer-events: none;
+  opacity: 0.95;
+}
+
+
+
+/* ======================================================
+   08 — DIFFICULTY SCREEN
+   ====================================================== */
+#screen-difficulty {
+  text-align: center;
+  padding-top: 40px;
+}
+
+#screen-difficulty h2 {
+  margin-bottom: 24px;
+}
+
+.grid-cell { cursor: pointer; }
+
+
+
+.difficulty-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.mode-buttons {
+  display: flex;
+  flex-direction: column;   /* ← untereinander */
+  align-items: center;
+  gap: 14px;
+}
+
+.mode-buttons button {
+  width: min(92vw, 420px);
+}
+
+/* ======================================================
+   09 — RESULT SCREENS (ALLE MODI)
+   ====================================================== */
+.result-screen {
+  text-align: center;
+  padding-top: 32px;
+}
+
+.result-screen h2 {
+  margin-bottom: 20px;
+}
+
+.result-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+/* ======================================================
+   10 — VISUAL / SOUND (BASIS)
+   ====================================================== */
+#screen-visual,
+/* ======================================================
+   SOUND – Master Layout 
+   ====================================================== */
+
+/* Hint mittig transparent */
+#screen-sound .sd-hint{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  padding:10px 14px;
+  border-radius:12px;
+  background:rgba(0,0,0,0.35);
+  border:1px solid rgba(255,255,255,0.18);
+  color:rgba(255,255,255,0.75);
+  font-size:16px;
+  font-weight:700;
+  pointer-events:none;
+  user-select:none;
+}
+
+/* Bälle */
+#screen-sound .sd-ball{
+  position:absolute;
+  border-radius:50%;
+  cursor:pointer;
+  touch-action:manipulation;
+  box-shadow:0 6px 20px rgba(0,0,0,0.35);
+}
+
+/* Miss-Flash */
+#screen-sound.flash-miss{
+  animation: sdMissFlash 180ms ease-out;
+}
+@keyframes sdMissFlash{
+  0%   { background-color: rgba(255, 0, 0, 0.35); }
+  100% { background-color: transparent; }
+}
+
+
+/* ======================================================
+   11 — SHAPE SHIFT – Master Layout
+   ====================================================== */
+
+#screen-shapeShift {
+  background: #000;
+  min-height: 100vh;          /* stabiler als height:100vh */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 10px;
+  gap: 12px;
+}
+
+/* Back Button unten, wie bei anderen Modi */
+#screen-shapeShift .btn-back {
+  width: min(92vw, 520px);    /* exakt Master-Playfield-Breite */
+  margin-top: auto;
+  margin-bottom: 14px;
+}
+
+/* Hint mittig transparent (bleibt ShapeShift-spezifisch) */
+#screen-shapeShift .ss-hint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+
+  padding: 10px 14px;
+  border-radius: 12px;
+
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.18);
+
+  color: rgba(255,255,255,0.75);
+  font-size: 16px;
+  font-weight: 700;
+
+  pointer-events: none;
   user-select: none;
 }
 
-.grid-cell.active {
-  background: #2a7;
-  border-color: #4fc08d;
-  box-shadow: 0 0 10px rgba(79,192,141,0.6);
-}
-
-/* Einmalig zusammengeführt: Hit-Feedback */
-.grid-cell.hit {
-  transform: scale(0.97);
-  background: #2a7;                 /* kurzer grüner Flash */
-  box-shadow: 0 0 10px rgba(79,192,141,0.6);
-}
-.grid-cell.miss { background:#a22; border-color:#e55; }
-
-/* Stats Modal */
-.modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-  background:rgba(0,0,0,0.45); z-index:1000; }
-.modal-panel { width:min(680px, 92vw); max-height:90vh; overflow:auto; background:#fff; border-radius:12px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.2); padding:16px 16px 20px; position:relative; }
-
-
-.tabs { display:flex; gap:6px; margin:6px 0 12px; }
-.tab-btn { border:none; padding:8px 12px; border-radius:8px; background:#eee; cursor:pointer; }
-.tab-btn.active { background:#ddd; font-weight:600; }
-
-#stats-tab-now .stat-row { display:grid; grid-template-columns: 1fr auto; gap:10px;
-  padding:6px 0; border-bottom:1px dashed #eee; }
-#stats-tab-now .stat-row span { color:#555; }
-#stats-tab-now .stat-row strong { font-variant-numeric: tabular-nums; }
-
-.best-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-bottom:10px; }
-.best-grid > div { background:#f7f7f7; border-radius:8px; padding:10px; }
-.best-grid small { color:#666; display:block; margin-bottom:4px; }
-.best-grid strong { font-variant-numeric: tabular-nums; }
-
-.stats-table { width:100%; border-collapse:collapse; font-size:14px; }
-.stats-table th, .stats-table td { padding:6px 8px; border-bottom:1px solid #eee; text-align:left; }
-.stats-table th { color:#444; font-weight:600; }
-/* Tabs im Stats-Modal: "Jetzt" / "Historie" */
-#stats-modal .tab-btn {
-  background: transparent;
-  color: #cfd3dc;                  /* nicht mehr weiß */
-  border: 1px solid rgba(255,255,255,0.18);
-  padding: 8px 14px;
-  border-radius: 10px;
-  font-weight: 600;
-  letter-spacing: .2px;
-  transition: background .15s ease, color .15s ease, border-color .15s ease, transform .08s ease;
-  backdrop-filter: blur(2px);
-}
-
-#stats-modal .tab-btn:hover {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.28);
-  transform: translateY(-1px);
-}
-
-#stats-modal .tab-btn:focus-visible {
-  outline: 2px solid #4da3ff;
-  outline-offset: 2px;
-}
-
-/* Aktiver Tab farblich absetzen */
-#stats-modal .tab-btn.active {
-  background: linear-gradient(180deg, #3a7bd5, #00d2ff); /* hübsches Blau */
-  color: #0b1020;                 /* dunkler Text auf hellem Button */
-  border-color: transparent;
-}
-
-/* Optional: Container-Hintergrund etwas abdunkeln, damit Tabs besser wirken */
-#stats-modal .tabs-header {
-  background: rgba(0,0,0,0.3);
-  padding: 8px;
-  border-radius: 12px;
-}
-#ss-rule { user-select: none; }
-.ss-shape { cursor: pointer; transition: transform 80ms ease; }
-.ss-shape:active { transform: scale(0.95); }
-
-#game {
-  background: #1b1f2a; /* dunkler, aber nicht ganz schwarz */
-}
-
-.ss-shape {
-  box-shadow:
-    0 0 10px currentColor,     /* farbiger Glow */
-    0 0 20px rgba(0,0,0,0.5);  /* leichter Schlagschatten */
-  border: 2px solid rgba(255,255,255,0.2); /* dezenter Rahmen */
-}
-
-/* === Shape Shift – HUD & Shapes (consolidated) === */
-.ss-hud.top-right{
-  position:absolute; top:8px; right:8px;
-  font-size:14px; padding:6px 10px;
-  background:rgba(0,0,0,.35); color:#fff; border-radius:8px;
-}
-.ss-hud.miss{ animation:ss-miss 250ms ease }
-@keyframes ss-miss{0%{transform:translateX(0)}33%{transform:translateX(-3px)}66%{transform:translateX(3px)}100%{transform:translateX(0)}}
-
-/* Baseline placement for moving shapes */
-.ss-shape{ position:absolute; will-change:transform }
-
-/* 9 shapes via clip-path so background color works consistently */
-.ss-shape.circle{ border-radius:50% }
-.ss-shape.square{ border-radius:4px }
-.ss-shape.triangle{ clip-path:polygon(50% 0%,0% 100%,100% 100%) }
-.ss-shape.diamond{ clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%) }
-.ss-shape.pentagon{ clip-path:polygon(50% 0%,100% 38%,81% 100%,19% 100%,0% 38%) }
-.ss-shape.hexagon{ clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%) }
-.ss-shape.octagon{ clip-path:polygon(30% 0%,70% 0%,100% 30%,100% 70%,70% 100%,30% 100%,0% 70%,0% 30%) }
-.ss-shape.star{
-  clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
-}
-.ss-shape.heart{
-  clip-path:path('M24 7C24 3.686 21.314 1 18 1C15.879 1 13.997 2.063 12.9 3.7C11.803 2.063 9.921 1 7.8 1C4.486 1 1.8 3.686 1.8 7C1.8 13.6 12.9 21 12.9 21C12.9 21 24 13.6 24 7Z');
-  transform-origin:center;
-}
-/* HUD-Variante unter dem Streak (nicht fixed/absolute) */
-.ss-hud.under-streak{
-  position: static;            /* nimmt am normalen Flow teil */
-  display: inline-block;
-  margin: 6px 0 10px 0;
-  padding: 6px 10px;
-  background: rgba(0,0,0,.35);
-  color:#fff;
-  border-radius:8px;
-  font-size:14px;
-}
-/* Legacy-Kreise in Shape-Shift ausblenden */
-.shape-mode #circle,
-.shape-mode #circle2,
-.shape-mode #circle3,
-.shape-mode #circle4 {
+#screen-shapeShift .ss-hint.hidden {
   display: none !important;
 }
 
-/* === Shape Shift – zentrales Ziel-Label === */
-#ss-center-target {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;            /* nie klickbar */
-  z-index: 5;                      /* über Shapes, unter HUD/Modals */
-}
+/* ======================================================
+   MIND SWITCH – Master Layout
+   ====================================================== */
 
-#ss-center-target .label {
-  font-size: clamp(22px, 5vw, 36px);
-  font-weight: 800;
-  letter-spacing: 0.4px;
-  padding: 6px 12px;
-  border-radius: 10px;
-  background: rgba(0,0,0,0.25);    /* leichte Abdunklung */
-  color: #fff;                     /* Default, wird dynamisch überschrieben */
-  text-shadow:
-    0 1px 2px rgba(0,0,0,0.45),
-    0 0 10px rgba(0,0,0,0.25);
-}
-
-/* Wenn der Text selbst farbig ist (Ziel ist eine Farbe), nimmt man hellen Rand */
-#ss-center-target.color .label {
-  background: rgba(0,0,0,0.15);
-  text-shadow:
-    0 1px 2px rgba(0,0,0,0.35),
-    0 0 10px currentColor;
-}
-
-/* Optional: sanfter Pop bei Zielwechsel */
-#ss-center-target .label.pop {
-  animation: ssCenterPop 220ms ease;
-}
-@keyframes ssCenterPop {
-  0%   { transform: scale(0.9); opacity: 0.7; }
-  60%  { transform: scale(1.05); opacity: 1; }
-  100% { transform: scale(1); }
-}
-/* Gesamtes Mind-Switch-Spielfeld */
-#mind-switch {
-  position: relative;
-  width: 90%;
-  height: 70vh;
-  margin: 40px auto;
-  border: 3px solid rgba(255,255,255,0.2);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 0 20px rgba(0,0,0,0.4);
-  background: rgba(255,255,255,0.05);
+#screen-mind {
+  background: #000;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
+  justify-content: flex-start;
+  padding-top: 10px;
+  gap: 12px;
 }
 
-/* Spielfeldhälften */
-.ms-arena {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  width: 100%;
-  height: 100%;
+/* Back Button wie alle anderen Modi */
+#screen-mind .btn-back{
+  width: min(92vw, 520px);
+  max-width: 520px;
+  align-self: center;
+}
+
+/* ------------------------------------------------------
+   MASTER PLAYFIELD – vertikal geteilt
+   ------------------------------------------------------ */
+
+#screen-mind .playfield{
+  display: flex;
   position: relative;
 }
 
-/* linke und rechte Seite neutral */
-.ms-side {
+/* Zwei gleich große Hälften */
+#screen-mind .mind-left,
+#screen-mind .mind-right{
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  /* NEU: neutrales Grund-Grau */
   background: rgba(255,255,255,0.03);
-  transition: background 120ms ease, transform 120ms ease;
 }
 
-/* optische Mittellinie */
-.ms-arena::before {
-  content: "";
+
+/* Senkrechter Trennstrich */
+#screen-mind .mind-left{
+  border-right: 2px solid rgba(255,255,255,0.15);
+}
+
+/* Optionales Feedback (wenn vom Core gesetzt) */
+#screen-mind .mind-left.correct,
+#screen-mind .mind-right.correct{
+  background: rgba(0, 255, 0, 0.10);
+}
+
+#screen-mind .mind-left.wrong,
+#screen-mind .mind-right.wrong{
+  background: rgba(255, 0, 0, 0.12);
+}
+
+/* ------------------------------------------------------
+   Hint dauerhaft mittig (wie ShapeShift)
+   ------------------------------------------------------ */
+
+#screen-mind .ms-hint {
   position: absolute;
-  top: 0;
   left: 50%;
-  width: 2px;
-  height: 100%;
-  background: rgba(255,255,255,0.15);
-  transform: translateX(-50%);
-}
-
-/* Hover-Orientierung (optional) */
-.ms-side:hover {
-  background: rgba(255,255,255,0.08);
-  cursor: pointer;
-}
-
-/* kurzzeitige Blitzfarben */
-.ms-side.ms-ok  { background: rgba(0,255,0,0.25) !important; }
-.ms-side.ms-bad { background: rgba(255,0,0,0.25) !important; }
-
-/* Text in der Mitte */
-#ms-prompt {
-  position: absolute;
   top: 50%;
-  left: 50%;
   transform: translate(-50%, -50%);
-  font-size: clamp(2rem, 5vw, 3.5rem);
-  font-weight: 700;
-  text-shadow: 0 0 12px rgba(0,0,0,0.6);
-  pointer-events: none; /* klicks gehen durch */
-}
-.ms-arena::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 5px;
-  height: 100%;
-  background: linear-gradient(
-    to bottom,
-    rgba(255,0,0,0.5),
-    rgba(0,255,0,0.5)
-  );
-  box-shadow: 0 0 15px rgba(255,255,255,0.3);
-  transform: translateX(-50%);
-  border-radius: 3px;
-}
-#ms-cue {
-  letter-spacing: .5px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-  text-transform: uppercase;
-}
-#ms-back {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(255,255,255,0.8);
-  border: none;
-  border-radius: 8px;
-  padding: 10px 20px;
+
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.18);
+
+  color: rgba(255,255,255,0.75);
   font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-  color: #000;           /* ← Textfarbe schwarz */
+  font-weight: 700;
+
+  pointer-events: none;
+  user-select: none;
 }
-#ms-back:hover {
-  background: rgba(255,255,255,1);
-  color: #000;           /* optional: bleibt schwarz beim Hover */
+
+
+/* ======================================================
+   HUD MASTER (für alle Modi gleich)
+   ====================================================== */
+.hud.hud-master{
+  position: fixed;
+  top: 12px;
+  left: 0;
+  right: 0;
+  transform: none;
+
+  width: 100%;
+  padding: 0 18px;
+
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  pointer-events: none;
+  z-index: 999;
+}
+
+.hud-master .hud-left{
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  line-height: 1.1;
+}
+
+.hud-master .hud-sep{
+  opacity: .6;
+  margin: 0 2px;
+}
+
+.hud-master .hud-right{
+  min-width: 70px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.hud-master .hud-hide{
+  display: none !important;
+}
+
+@media (max-width: 420px){
+  .hud.hud-master{ font-size: 16px; }
 }
