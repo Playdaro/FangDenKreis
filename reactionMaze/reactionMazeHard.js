@@ -3,7 +3,7 @@ import { startMaze } from "./reactionMazeCore.js";
 
 export function startMazeHard() {
   startMaze({
-    label: "Hard",
+    label: "Schwer",
 
     cols: 6,
     rows: 6,

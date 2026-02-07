@@ -3,7 +3,7 @@ import { SHAPES, COLORS } from './shapeShiftCore.js';
 
 export function getShapeShiftEasyConfig() {
   return {
-    label: 'easy',
+    label: 'Einfach',
     count: 3,
     speedMin: 1.2,
     speedMax: 2.0,

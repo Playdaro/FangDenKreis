@@ -70,6 +70,8 @@
     <button id="btn-shape-shift">🔺 Shape Shift</button>
     <button id="btn-mind">🔄 Mind Switch</button>
     <button id="btn-maze">⚡ Reaction Maze</button>
+    <button id="btn-overload">🛑 Overload Control</button>
+
   </div>
 </section>
 
@@ -186,6 +188,32 @@
 
 </section>
 
+<!-- ====================================================== -->
+<!-- OVERLOAD CONTROL PLAYSCREEN -->
+<!-- ====================================================== -->
+<section id="screen-overload" class="app-screen hidden">
+
+  <div class="hud hud-master">
+    <div class="hud-left">
+      <span>Entscheidungen <strong id="overload-decisions">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span>Fehler <strong id="overload-wrong">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span>Serie <strong id="overload-streak">0</strong></span>
+    </div>
+
+    <div class="hud-right">
+      <strong id="overload-time">30</strong>s
+    </div>
+  </div>
+
+  <div id="overload-playfield" class="playfield">
+    <!-- Reize werden per JS erzeugt -->
+  </div>
+
+</section>
+
+
 
 
 <!-- ====================================================== -->
@@ -222,7 +250,6 @@
   <div class="hud hud-master">
     <div class="hud-left">
       <span>Treffer <strong id="vs-score">0</strong></span>
-      <span class="hud-sep">·</span>
       <span class="hud-hide">Fehlklicks <strong id="vs-misses">0</strong></span>
     </div>
 
@@ -232,7 +259,7 @@
   </div>
 
   <div id="vs-arena" class="playfield">
-    <div class="ss-hint">Klicke den Kreis</div>
+    
   </div>
 
   <button id="vs-back" class="btn-back">Zurück zum Menü</button>
@@ -319,6 +346,8 @@
 <section id="screen-difficulty" class="app-screen hidden difficulty-screen" style="color:#fff; text-align:center; padding-top:32px;">
   <h2 id="difficulty-title">–</h2>
 
+  <p id="difficulty-desc" class="difficulty-desc"></p>
+
   <div class="difficulty-buttons">
     <button data-diff="easy">Leicht</button>
     <button data-diff="medium">Mittel</button>
@@ -329,10 +358,6 @@
     Zurück zum Menü
   </button>
 </section>
-
-
-
-
 
 <!-- ====================================================== -->
 <!-- RESULTS -->
@@ -378,6 +403,7 @@
   <p>Richtige Klicks: <strong><span id="grid-res-score">0</span></strong></p>
   <p>Ø Reaktionszeit: <strong><span id="grid-res-avg">0 ms</span></strong></p>
   <p>Fehlklicks: <strong><span id="grid-res-misses">0</span></strong></p>
+  <p>Verpasste Klicks: <strong><span id="grid-res-missed">0</span></strong></p>
   <p>Ende durch: <strong><span id="grid-res-endreason">–</span></strong></p>
 
   <button id="grid-res-retry">Nochmals spielen</button>
@@ -385,18 +411,23 @@
 </section>
 
 <!-- GRID TIMING RESULT -->
-<section id="screen-gridtiming-result" class="app-screen hidden" style="color:#fff; text-align:center; padding-top:28px;">
+<section id="screen-gridtiming-result"
+         class="app-screen hidden"
+         style="color:#fff; text-align:center; padding-top:28px;">
+
   <h2>Timing-Training – Ergebnis</h2>
 
-  <p>Modus: <strong><span id="gt-res-diff">–</span></strong></p>
-  <p>Richtige Klicks: <strong><span id="gt-res-score">0</span></strong></p>
-  <p>Ø Abweichung: <strong><span id="gt-res-avg">0 ms</span></strong></p>
-  <p>Fehlklicks: <strong><span id="gt-res-misses">0</span></strong></p>
-  <p>Ende durch: <strong><span id="gt-res-endreason">–</span></strong></p>
+  <p>Modus: <strong><span id="gridtiming-res-diff">–</span></strong></p>
+  <p>Richtige Klicks: <strong><span id="gridtiming-res-score">0</span></strong></p>
+  <p>Ø Abweichung vom Idealzeitpunkt: <strong><span id="gridtiming-res-avgerr">–</span></strong></p>
+  <p>Fehlklicks: <strong><span id="gridtiming-res-misses">0</span></strong></p>
+  <p>Beste Serie: <strong><span id="gridtiming-res-best">0</span></strong></p>
+  <p>Ende durch: <strong><span id="gridtiming-res-endreason">–</span></strong></p>
 
-  <button id="gt-res-retry">Nochmals spielen</button>
-  <button id="gt-res-menu">Zurück zum Menü</button>
+  <button id="gridtiming-res-retry">Nochmals spielen</button>
+  <button id="gridtiming-res-menu">Zurück zum Menü</button>
 </section>
+
 
 <!-- MEMORY RESULT -->
 <section id="screen-memory-result" class="app-screen hidden" style="color:#fff; text-align:center; padding-top:28px;">
@@ -406,7 +437,7 @@
   <p>Richtige Sequenzen: <strong><span id="mem-res-score">0</span></strong></p>
   <p>Fehler: <strong><span id="mem-res-misses">0</span></strong></p>
   <p>Streak: <strong><span id="mem-res-streak">0</span></strong></p>
-  <p>Accuracy: <strong><span id="mem-res-accuracy">0%</span></strong></p>
+  <p>Genauigkeit: <strong><span id="mem-res-accuracy">0%</span></strong></p>
 
   <button id="mem-res-retry">Nochmals spielen</button>
   <button id="mem-res-menu">Zurück zum Menü</button>
@@ -443,7 +474,26 @@
 
 <!-- MAZE SCREEN -->
 <section id="screen-maze" class="app-screen hidden">
-  <div id="maze-overlay"></div>
+
+  <!-- HUD (MASTER) -->
+  <div class="hud hud-master">
+    <div class="hud-left">
+      <span>Schritte <strong id="maze-score">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span>Fehler <strong id="maze-misses">0</strong></span>
+    </div>
+
+    <div class="hud-right">
+      <strong id="maze-time">30</strong>s
+    </div>
+  </div>
+
+  <!-- PLAYFIELD (MASTER) -->
+  <div class="playfield"></div>
+
+  <!-- BACK -->
+  <button id="maze-back" class="btn-back">Zurück zum Menü</button>
+
 </section>
 
 <!-- MAZE RESULT -->
@@ -459,6 +509,26 @@
   <button id="maze-res-retry">Nochmals spielen</button>
   <button id="maze-res-menu">Zurück zum Menü</button>
 </section>
+
+<!-- OVERLOAD CONTROL RESULT -->
+<section id="screen-overload-result"
+         class="app-screen hidden"
+         style="color:#fff; text-align:center; padding-top:28px;">
+
+  <h2>Overload Control – Ergebnis</h2>
+
+  <p>Modus: <strong><span id="overload-res-diff">–</span></strong></p>
+  <p>Entscheidungen: <strong><span id="overload-res-decisions">0</span></strong></p>
+  <p>Richtig: <strong><span id="overload-res-correct">0</span></strong></p>
+  <p>Fehler: <strong><span id="overload-res-wrong">0</span></strong></p>
+  <p>Richtig nicht geklickt: <strong><span id="overload-res-inhibit">0</span></strong></p>
+  <p>Beste Serie: <strong><span id="overload-res-best">0</span></strong></p>
+  <p>Genauigkeit: <strong><span id="overload-res-acc">0%</span></strong></p>
+
+  <button id="overload-res-retry">Nochmals spielen</button>
+  <button id="overload-res-menu">Zurück zum Menü</button>
+</section>
+
 
 <!-- ====================================================== -->
 <!-- SCRIPT IMPORTS – Final Project Structure -->
@@ -512,7 +582,20 @@
 <script type="module" src="shapeShift/shapeShiftMedium.js"></script>
 <script type="module" src="shapeShift/shapeShiftHard.js"></script>
 
+<!-- Overload Control -->
+<script type="module" src="overloadControl/overloadControlCore.js"></script>
+<script type="module" src="overloadControl/overloadControlRunner.js"></script>
+<script type="module" src="overloadControl/overloadControlEasy.js"></script>
+<script type="module" src="overloadControl/overloadControlMedium.js"></script>
+<script type="module" src="overloadControl/overloadControlHard.js"></script>
+<script type="module" src="overloadControl/overloadControlResult.js"></script>
+
 <!-- Screen Manager + Main -->
 <script type="module" src="screens.js"></script>
 <script type="module" src="difficultySelect.js"></script>
 <script type="module" src="main.js"></script>
+
+
+</main>
+</body>
+</html>

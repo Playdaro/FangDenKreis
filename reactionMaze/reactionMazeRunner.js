@@ -1,72 +1,51 @@
-// reactionMazeRunner.js – Clean & Unified Difficulty System
+// reactionMazeRunner.js – GLOBAL-KONFORM (wie Grid / Simon / Sound)
 
-import { showScreen } from '../screens.js';
-import { openDifficultySelect } from '../difficultySelect.js';
-import { startMaze } from './reactionMazeCore.js';
+import { openDifficultySelect } from "../difficultySelect.js";
+import { showScreen } from "../screens.js";
+import { bindResultButtons } from "../result.js";
 
-// ============================
-// Schwierigkeits-Configs
-// ============================
-const DIFF = {
-  easy:   { cols: 5, rows: 5, pathLen: 18, stepMs: 2600, label: 'easy' },
-  medium: { cols: 6, rows: 6, pathLen: 24, stepMs: 2000, label: 'medium' },
-  hard:   { cols: 7, rows: 7, pathLen: 30, stepMs: 1600, label: 'hard' },
-};
+import { startMazeEasy } from "./reactionMazeEasy.js";
+import { startMazeMedium } from "./reactionMazeMedium.js";
+import { startMazeHard } from "./reactionMazeHard.js";
 
-// ============================
-// MENÜ → DIFFICULTY-SCREEN
-// ============================
-document.getElementById('btn-maze')?.addEventListener('click', () => {
+function bindMazeResultOnce() {
+  bindResultButtons({
+    menuBtnId: "maze-res-menu",
+    retryBtnId: "maze-res-retry",
+    onRetry: () => {
+      const diff = window.lastMazeDifficulty || "easy";
+      showScreen("maze");
+
+      if (diff === "easy") startMazeEasy();
+      else if (diff === "medium") startMazeMedium();
+      else startMazeHard();
+    },
+    menuKey: "menu",
+  });
+}
+
+document.addEventListener("DOMContentLoaded", bindMazeResultOnce);
+
+document.getElementById("btn-maze")?.addEventListener("click", () => {
   openDifficultySelect({
-    title: 'Reaction Maze',
+    modeKey: "maze",
     onStart: {
-      easy:   () => startFromDifficulty('easy'),
-      medium: () => startFromDifficulty('medium'),
-      hard:   () => startFromDifficulty('hard')
-    }
+      easy: () => {
+        window.lastMazeDifficulty = "easy";
+        showScreen("maze");
+        startMazeEasy();
+      },
+      medium: () => {
+        window.lastMazeDifficulty = "medium";
+        showScreen("maze");
+        startMazeMedium();
+      },
+      hard: () => {
+        window.lastMazeDifficulty = "hard";
+        showScreen("maze");
+        startMazeHard();
+      },
+    },
   });
 });
 
-// ============================
-// RESULT-SCREEN → RETRY
-// ============================
-window.startMazeFromMenu = function () {
-  if (window.lastMazeDifficulty === 'easy') {
-    startFromDifficulty('easy');
-  }
-
-  if (window.lastMazeDifficulty === 'medium') {
-    startFromDifficulty('medium');
-  }
-
-  if (window.lastMazeDifficulty === 'hard') {
-    startFromDifficulty('hard');
-  }
-};
-
-// ============================
-// ZENTRALE STARTFUNKTION
-// ============================
-function startFromDifficulty(mode) {
-  window.lastMazeDifficulty = mode;
-
-  const cfg = DIFF[mode];
-  if (!cfg) return; // <- kein Raten, kein Default
-
-  showScreen('maze');
-  startMaze(cfg);
-}
-
-// ============================
-// BACK-BUTTON IM MAZE
-// ============================
-document.getElementById('maze-back')?.addEventListener('click', () => {
-  if (typeof window.stopMaze === 'function') {
-    window.stopMaze();
-  }
-
-  const overlay = document.getElementById('maze-overlay');
-  if (overlay) overlay.innerHTML = '';
-
-  showScreen('menu');
-});

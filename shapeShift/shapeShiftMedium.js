@@ -3,7 +3,7 @@ import { SHAPES, COLORS } from './shapeShiftCore.js';
 
 export function getShapeShiftMediumConfig() {
   return {
-    label: 'medium',
+    label: 'Mittel',
     count: 4,
     speedMin: 0.8,
     speedMax: 1.5,

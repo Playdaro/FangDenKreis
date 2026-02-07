@@ -3,7 +3,7 @@ import { SHAPES, COLORS } from './shapeShiftCore.js';
 
 export function getShapeShiftHardConfig() {
   return {
-    label: 'hard',
+    label: 'Schwer',
     count: 5,
     speedMin: 0.5,
     speedMax: 1.0,

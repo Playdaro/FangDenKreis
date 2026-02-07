@@ -1,201 +1,207 @@
-// visualCore.js – HTML-HUD Version (Master-HUD kompatibel)
+// visualCore.js — FINAL
+// - Startet Visual-Run
+// - Wertet aus
+// - Bindet Result-Buttons korrekt (Retry / Menü)
+// - Difficulty-Anzeige über formatDifficulty()
+
 import { showScreen } from "../screens.js";
+import {
+  setText,
+  formatDifficulty,
+  bindResultButtons
+} from "../result.js";
 
 const now = () => performance.now();
-
-let teardownActive = null;
+let teardown = null;
 
 export function stopVisual() {
-  if (typeof teardownActive === "function") teardownActive();
-  teardownActive = null;
+  if (typeof teardown === "function") teardown();
+  teardown = null;
 }
 
-export function startVisual(cfg) {
-  // Wichtig: alte Session sauber beenden (sonst doppelte Listener)
+export function startVisualCore(config) {
   stopVisual();
 
   const {
-    totalMs = 30000,
-    perStepMs = 1000,
+    diffKey = "easy",
+    sessionMs = 30_000,
+    hitWindowMs = 1_000,
+    circleSize = 56,
     color = "#2ecc71",
-    label = "Easy",
-  } = cfg || {};
+  } = config || {};
 
+  window.lastVisualDifficulty = diffKey;
   showScreen("visual");
 
-  const host = document.getElementById("screen-visual");
-  if (!host) {
-    console.error("[visual] #screen-visual fehlt");
-    return;
-  }
-
-  // HTML-HUD / Arena aus index.html holen (nicht mehr bauen!)
   const scoreEl = document.getElementById("vs-score");
+  const missEl  = document.getElementById("vs-misses");
   const timeEl  = document.getElementById("vs-time");
   const arena   = document.getElementById("vs-arena");
   const backBtn = document.getElementById("vs-back");
 
   if (!arena) {
-    console.error("[visual] #vs-arena fehlt im HTML (screen-visual)");
+    console.error("[visual] #vs-arena fehlt");
     return;
   }
 
-  // =====================
-  // STATE
-  // =====================
+  if (getComputedStyle(arena).position === "static") {
+    arena.style.position = "relative";
+  }
+
+  arena.querySelectorAll(".ss-hint").forEach(el => el.remove());
+
   let running = true;
-  let score = 0;
-  let misses = 0;
-  let circleSpawnT = 0;
-  let circleDeadline = 0;
+  let hits = 0;
+  let wrongClicks = 0;
+  let missedTargets = 0;
   const rts = [];
-  const totalDeadline = now() + totalMs;
 
-  // HUD init
+  let spawnT = 0;
+  let deadlineT = 0;
+
+  const endT = now() + sessionMs;
+
   if (scoreEl) scoreEl.textContent = "0";
-  if (timeEl) timeEl.textContent = String(Math.ceil(totalMs / 1000));
+  if (missEl) missEl.textContent = "0";
+  if (timeEl) timeEl.textContent = String(Math.ceil(sessionMs / 1000));
 
-  // Arena leeren (nur Inhalt, nicht HUD!)
-  arena.innerHTML = "";
-
-  // Kreis anlegen
+  // =====================================
+  // Ziel-Kreis
+  // =====================================
   const circle = document.createElement("div");
+  circle.className = "vs-circle";
   circle.style.position = "absolute";
-  circle.style.width = "50px";
-  circle.style.height = "50px";
-  circle.style.borderRadius = "50%";
+  circle.style.width = `${circleSize}px`;
+  circle.style.height = `${circleSize}px`;
+  circle.style.borderRadius = "999px";
   circle.style.background = color;
   circle.style.cursor = "pointer";
+  circle.style.zIndex = "10";
+  circle.style.pointerEvents = "auto";
+  circle.style.touchAction = "manipulation";
   arena.appendChild(circle);
 
-  // =====================
-  // HELPERS
-  // =====================
-  function updateHUD() {
-    if (scoreEl) scoreEl.textContent = String(score);
+  function updateHud() {
+    if (scoreEl) scoreEl.textContent = String(hits);
+    if (missEl) missEl.textContent = String(wrongClicks + missedTargets);
 
-    const remainMs = Math.max(0, totalDeadline - now());
-    // du kannst hier auch mit 1 Nachkommastelle arbeiten – ich nehme ganze Sekunden, weil Master-HUD so wirkt
-    if (timeEl) timeEl.textContent = String(Math.ceil(remainMs / 1000));
+    const remain = Math.max(0, endT - now());
+    if (timeEl) timeEl.textContent = String(Math.ceil(remain / 1000));
   }
 
-  function moveCircleAndResetWindow() {
+  function moveCircle() {
     const rect = arena.getBoundingClientRect();
-    const size = 50;
-    const pad = 10;
+    const pad = 12;
 
-    const maxX = Math.max(pad, rect.width - size - pad);
-    const maxY = Math.max(pad, rect.height - size - pad);
+    const maxX = Math.max(pad, rect.width  - circleSize - pad);
+    const maxY = Math.max(pad, rect.height - circleSize - pad);
 
-    const x = pad + Math.random() * (maxX - pad);
-    const y = pad + Math.random() * (maxY - pad);
+    const x = pad + Math.random() * Math.max(0, (maxX - pad));
+    const y = pad + Math.random() * Math.max(0, (maxY - pad));
 
     circle.style.left = `${x}px`;
-    circle.style.top = `${y}px`;
+    circle.style.top  = `${y}px`;
 
-    circleSpawnT = now();
-    circleDeadline = circleSpawnT + perStepMs;
+    spawnT = now();
+    deadlineT = spawnT + hitWindowMs;
   }
 
-  function cleanup() {
+  // =====================================
+  // Finish + Result
+  // =====================================
+  function finish(reason) {
     running = false;
-  }
-
-  function finish(reason = "Zeit abgelaufen") {
-    cleanup();
 
     const avg =
-      rts.length > 0 ? Math.round(rts.reduce((a, b) => a + b, 0) / rts.length) : 0;
+      rts.length > 0
+        ? Math.round(rts.reduce((a, b) => a + b, 0) / rts.length)
+        : 0;
 
-    const res = document.getElementById("screen-visual-result");
-    if (res) {
-      const set = (id, val) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = val;
-      };
+    setText("vs-res-diff", formatDifficulty(diffKey));
+    setText("vs-res-steps", String(hits));
+    setText("vs-res-avg", `${avg} ms`);
+    setText("vs-res-misses", String(wrongClicks + missedTargets));
+    setText("vs-res-endreason", reason);
 
-      set("vs-res-diff", String(label));
-      set("vs-res-steps", String(score));
-      set("vs-res-avg", `${avg} ms`);
-      set("vs-res-misses", String(misses));
-      set("vs-res-endreason", String(reason));
+    bindResultButtons({
+      menuBtnId: "vs-res-menu",
+      retryBtnId: "vs-res-retry",
+      onRetry: () => {
+        startVisualCore({
+          diffKey,
+          sessionMs,
+          hitWindowMs,
+          circleSize,
+          color,
+        });
+      },
+    });
 
-      showScreen("visual-result");
-      return;
-    }
-
-    showScreen("menu");
+    showScreen("visual-result");
   }
 
-  // =====================
-  // EVENTS
-  // =====================
-  const downEvt = "onpointerdown" in window ? "pointerdown" : "mousedown";
-
-  const onArenaDown = (e) => {
-    if (!running) return;
-    if (e.target === circle) return;
-    // Fehlklick in Arena
-    misses++;
-    moveCircleAndResetWindow();
-  };
-
+  // =====================================
+  // Events
+  // =====================================
   const onCircleDown = (e) => {
     if (!running) return;
     e.preventDefault?.();
+    e.stopPropagation?.();
 
-    const rt = now() - circleSpawnT;
-    rts.push(rt);
+    rts.push(now() - spawnT);
+    hits++;
 
-    score++;
-    moveCircleAndResetWindow();
+    moveCircle();
+    updateHud();
   };
 
-  arena.addEventListener(downEvt, onArenaDown);
-  circle.addEventListener(downEvt, onCircleDown);
-
-  const onBack = () => {
-    stopVisual();
-    showScreen("menu");
+  const onArenaDown = () => {
+    if (!running) return;
+    wrongClicks++;
+    moveCircle();
+    updateHud();
   };
-  backBtn && (backBtn.onclick = onBack);
 
-  // =====================
-  // LOOP
-  // =====================
-  let rafId = 0;
+  circle.addEventListener("pointerdown", onCircleDown);
+  arena.addEventListener("pointerdown", onArenaDown);
 
+  if (backBtn) {
+    backBtn.onclick = () => {
+      stopVisual();
+      showScreen("menu");
+    };
+  }
+
+  // =====================================
+  // Loop
+  // =====================================
+  let raf = 0;
   function loop() {
     if (!running) return;
 
-    // Gesamtzeit vorbei?
-    if (now() >= totalDeadline) {
+    if (now() >= endT) {
       finish("Zeit abgelaufen");
       return;
     }
 
-    // Kreis nicht rechtzeitig geklickt = Miss
-    if (now() > circleDeadline) {
-      misses++;
-      moveCircleAndResetWindow();
+    if (now() > deadlineT) {
+      missedTargets++;
+      moveCircle();
+      updateHud();
     }
 
-    updateHUD();
-    rafId = requestAnimationFrame(loop);
+    raf = requestAnimationFrame(loop);
   }
 
-  // START
-  moveCircleAndResetWindow();
-  rafId = requestAnimationFrame(loop);
+  moveCircle();
+  updateHud();
+  raf = requestAnimationFrame(loop);
 
-  // =====================
-  // TEARDOWN speichern (für Restart)
-  // =====================
-  teardownActive = () => {
+  teardown = () => {
     running = false;
-    try { cancelAnimationFrame(rafId); } catch {}
-    try { arena.removeEventListener(downEvt, onArenaDown); } catch {}
-    try { circle.removeEventListener(downEvt, onCircleDown); } catch {}
+    try { cancelAnimationFrame(raf); } catch {}
+    try { arena.removeEventListener("pointerdown", onArenaDown); } catch {}
+    try { circle.removeEventListener("pointerdown", onCircleDown); } catch {}
     try { if (circle.parentNode) circle.parentNode.removeChild(circle); } catch {}
     try { if (backBtn) backBtn.onclick = null; } catch {}
   };

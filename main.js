@@ -1,29 +1,39 @@
 // main.js
-// Zentrale App-Logik (NUR Navigation + Modals)
+// Zentrale App-Logik: Navigation + Difficulty-Auswahl
 
 import { showScreen } from "./screens.js";
+import { openDifficultySelect } from "./difficultySelect.js";
+import { bindResultButtons } from "./result.js";
 
-// Helper
+/* ======================================================
+   OVERLOAD CONTROL
+   ====================================================== */
+import { startEasy as startOverloadEasy } 
+  from "./overloadControl/overloadControlEasy.js";
+
+import { startMedium as startOverloadMedium } 
+  from "./overloadControl/overloadControlMedium.js";
+
+import { startHard as startOverloadHard } 
+  from "./overloadControl/overloadControlHard.js";
+
+/* ======================================================
+   HELPER
+   ====================================================== */
 const qs = (id) => document.getElementById(id);
 
-// ======================================================
-// LOAD SAVED PLAYER NAME  ← GENAU HIER REIN
-// ======================================================
+/* ======================================================
+   PLAYER NAME FLOW
+   ====================================================== */
 const savedName = localStorage.getItem("brc_player_name");
 if (savedName) {
   window.playerName = savedName;
-
   const input = qs("name-input");
   if (input) input.value = savedName;
 }
 
-// ======================================================
-// INFO → NAME → MENU
-// ======================================================
 qs("info-continue")?.addEventListener("click", () => {
-  const savedName = localStorage.getItem("brc_player_name");
-  if (savedName) {
-    window.playerName = savedName;
+  if (localStorage.getItem("brc_player_name")) {
     showScreen("menu");
   } else {
     showScreen("name");
@@ -36,58 +46,85 @@ qs("name-submit")?.addEventListener("click", () => {
 
   window.playerName = name;
   localStorage.setItem("brc_player_name", name);
-
   showScreen("menu");
 });
 
-// ======================================================
-// MENU → MODAL / RUNNER-ENTRY
-// ======================================================
+/* ======================================================
+   RESULT BUTTONS – OVERLOAD
+   ====================================================== */
+document.addEventListener("DOMContentLoaded", () => {
+  bindResultButtons({
+    menuBtnId: "overload-res-menu",
+    retryBtnId: "overload-res-retry",
+    onRetry: () => {
+      const diff = window.lastOverloadDifficulty || "easy";
+      if (diff === "easy") startOverloadEasy();
+      else if (diff === "medium") startOverloadMedium();
+      else startOverloadHard();
+    },
+    menuKey: "menu",
+  });
+});
 
-// VISUAL
+/* ======================================================
+   MENU → VISUAL
+   ====================================================== */
+
+import {
+  startEasy as startVisualEasy,
+  startMedium as startVisualMedium,
+  startHard as startVisualHard
+} from "./visual/visualRunner.js";
+
+
 qs("btn-visual")?.addEventListener("click", () => {
-  qs("visual-modal")?.style && (qs("visual-modal").style.display = "flex");
+  openDifficultySelect({
+    modeKey: "visual",
+    onStart: {
+      easy: () => {
+        window.lastVisualDifficulty = "easy";
+        startVisualEasy();
+      },
+      medium: () => {
+        window.lastVisualDifficulty = "medium";
+        startVisualMedium();
+      },
+      hard: () => {
+        window.lastVisualDifficulty = "hard";
+        startVisualHard();
+      },
+    },
+  });
 });
 
-// SOUND
-qs("btn-audio")?.addEventListener("click", () => {
-  qs("audio-modal")?.style && (qs("audio-modal").style.display = "flex");
+
+
+/* ======================================================
+   MENU → OVERLOAD
+   ====================================================== */
+qs("btn-overload")?.addEventListener("click", () => {
+  openDifficultySelect({
+    modeKey: "overload",
+    onStart: {
+      easy: () => {
+        window.lastOverloadDifficulty = "easy";
+        startOverloadEasy();
+      },
+      medium: () => {
+        window.lastOverloadDifficulty = "medium";
+        startOverloadMedium();
+      },
+      hard: () => {
+        window.lastOverloadDifficulty = "hard";
+        startOverloadHard();
+      },
+    },
+  });
 });
 
-// GRID (3×3)
-qs("btn-grid")?.addEventListener("click", () => {
-  qs("grid-modal")?.style && (qs("grid-modal").style.display = "flex");
-});
-
-// GRID TIMING
-qs("btn-gridtiming")?.addEventListener("click", () => {
-  qs("gridtiming-modal")?.style && (qs("gridtiming-modal").style.display = "flex");
-});
-
-// MEMORY (Simon)
-qs("btn-memory")?.addEventListener("click", () => {
-  qs("memory-modal")?.style && (qs("memory-modal").style.display = "flex");
-});
-
-// MIND SWITCH
-//qs("btn-mind")?.addEventListener("click", () => {
-//  qs("mind-modal")?.style && (qs("mind-modal").style.display = "flex");
-//});
-
-// SHAPE SHIFT
-
-
-// MAZE (vollständig im Runner geregelt)
-qs("btn-maze")?.addEventListener("click", () => {
-  // reactionMazeRunner übernimmt alles Weitere
-  const modal = qs("maze-modal");
-  if (modal) modal.style.display = "flex";
-});
-
-// ======================================================
-// GLOBAL: MODAL CLOSE BUTTONS (X)
-// ======================================================
-
+/* ======================================================
+   MODAL CLOSE (X)
+   ====================================================== */
 document.querySelectorAll(".modal .modal-close").forEach(btn => {
   btn.addEventListener("click", (e) => {
     const modal = e.target.closest(".modal");

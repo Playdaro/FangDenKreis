@@ -1,10 +1,13 @@
-import { startVisual } from './visualCore.js';
+// visualHard.js – nur Config (keine Starts, keine Imports)
+import { startVisualCore } from "./visualCore.js";
 
-export function startVisualHard() {
-  startVisual({
-    totalMs: 30000,
-    perStepMs: 500,       // 0.5s Zeitfenster
-    color: '#e74c3c',     // rot
-    label: 'hard'
+export function startHard() {
+  startVisualCore({
+    diffKey: "hard",
+    label: "Schwer",
+    sessionMs: 30000,
+    hitWindowMs: 500,
+    circleSize: 48,
+    color: "#e74c3c",
   });
 }

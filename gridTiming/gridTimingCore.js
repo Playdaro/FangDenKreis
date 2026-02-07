@@ -1,6 +1,7 @@
 // gridTimingCore.js – Master HUD + Master Playfield (3×3)
 import { showScreen } from "../screens.js";
 import { endGame } from "../core.js";
+import { setText } from "../result.js";
 
 const GRID_SIZE = 3;
 const TICK_MS = 16;
@@ -49,36 +50,17 @@ function getScreen() {
   return s;
 }
 
-function ensureUI() {
-  const screen = getScreen();
-  if (!screen) return null;
+function clearTimers() {
+  if (state.ticker) { clearInterval(state.ticker); state.ticker = null; }
+  if (state.greenWindowTimeout) { clearTimeout(state.greenWindowTimeout); state.greenWindowTimeout = null; }
+}
 
+function clearCells() {
   const board = q("gridtiming-board");
-  if (!board) {
-    console.error("[gridTimingCore] #gridtiming-board fehlt im HTML.");
-    return null;
-  }
-
-  // 9 Buttons sicherstellen
-  if (board.querySelectorAll(".gridtiming-cell").length !== 9) {
-    board.innerHTML = "";
-    for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "gridtiming-cell";
-      b.dataset.idx = String(i);
-      b.addEventListener("pointerdown", onCellClick);
-      board.appendChild(b);
-    }
-  }
-
-  // Back Button
-  q("gridtiming-back")?.addEventListener("click", () => {
-    stopGridTiming("abort", false);
-    showScreen("menu");
-  }, { once: true });
-
-  return { board };
+  if (!board) return;
+  board.querySelectorAll(".gridtiming-cell").forEach((el) => {
+    el.classList.remove("is-red", "is-green", "is-wrong");
+  });
 }
 
 function updateHud() {
@@ -91,14 +73,6 @@ function updateHud() {
   if (mEl) mEl.textContent = String(state.misses);
   if (stEl) stEl.textContent = String(state.streak);
   if (tEl) tEl.textContent = fmtSec3(state.remainingMs);
-}
-
-function clearCells() {
-  const board = q("gridtiming-board");
-  if (!board) return;
-  board.querySelectorAll(".gridtiming-cell").forEach((el) => {
-    el.classList.remove("is-red", "is-green", "is-wrong");
-  });
 }
 
 function lightCell(idx, mode) {
@@ -116,10 +90,7 @@ function wrongFeedback() {
   const board = q("gridtiming-board");
   if (!board) return;
 
-  board.querySelectorAll(".gridtiming-cell").forEach((el) => {
-    el.classList.add("is-wrong");
-  });
-
+  board.querySelectorAll(".gridtiming-cell").forEach((el) => el.classList.add("is-wrong"));
   setTimeout(() => clearCells(), 150);
 }
 
@@ -130,13 +101,44 @@ function pickOtherIndex(prev, max) {
   return idx;
 }
 
-function clearTimers() {
-  if (state.ticker) { clearInterval(state.ticker); state.ticker = null; }
-  if (state.greenWindowTimeout) { clearTimeout(state.greenWindowTimeout); state.greenWindowTimeout = null; }
+function ensureUI() {
+  const screen = getScreen();
+  if (!screen) return null;
+
+  const board = q("gridtiming-board");
+  if (!board) {
+    console.error("[gridTimingCore] #gridtiming-board fehlt im HTML.");
+    return null;
+  }
+
+  // 9 Buttons sicherstellen
+  if (board.querySelectorAll(".gridtiming-cell").length !== GRID_SIZE * GRID_SIZE) {
+    board.innerHTML = "";
+    for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "gridtiming-cell";
+      b.dataset.idx = String(i);
+      b.addEventListener("pointerdown", onCellClick);
+      board.appendChild(b);
+    }
+  }
+
+  // Back Button robust (kein once:true)
+  const backBtn = q("gridtiming-back");
+  if (backBtn) {
+    backBtn.onclick = () => {
+      stopGridTiming("abort", false); // kein Result, direkt zurück
+      showScreen("menu");
+    };
+  }
+
+  return { board };
 }
 
 function finish(reason = "ended", record = true) {
   state.running = false;
+  state.isActive = false;
   clearTimers();
   clearCells();
 
@@ -144,21 +146,16 @@ function finish(reason = "ended", record = true) {
 
   const avgErrorMs = state.hitCount > 0 ? (state.totalErrorMs / state.hitCount) : null;
 
-  const set = (id, val) => {
-    const el = q(id);
-    if (el) el.textContent = val;
-  };
-
-  set("gridtiming-res-diff", state.label || state.diffKey || "–");
-  set("gridtiming-res-score", String(state.score));
-  set("gridtiming-res-misses", String(state.misses));
-  set("gridtiming-res-best", String(state.bestStreak));
-  set("gridtiming-res-avgerr", avgErrorMs == null ? "–" : Math.round(avgErrorMs) + " ms");
+  setText("gridtiming-res-diff", state.label || state.diffKey || "–");
+  setText("gridtiming-res-score", String(state.score));
+  setText("gridtiming-res-misses", String(state.misses));
+  setText("gridtiming-res-best", String(state.bestStreak));
+  setText("gridtiming-res-avgerr", avgErrorMs == null ? "–" : `${Math.round(avgErrorMs)} ms`);
 
   let reasonText = "Runde beendet";
   if (reason === "timeup") reasonText = "Zeitbank leer";
   if (reason === "abort") reasonText = "Abgebrochen";
-  set("gridtiming-res-endreason", reasonText);
+  setText("gridtiming-res-endreason", reasonText);
 
   try {
     endGame({
@@ -177,55 +174,8 @@ function finish(reason = "ended", record = true) {
     console.error("[gridTimingCore] endGame() error", e);
   }
 
+  // muss im HTML existieren: id="screen-gridtiming-result"
   showScreen("gridtiming-result");
-}
-
-async function runRound() {
-  if (!state.running) return;
-  if (state.remainingMs <= 0) { finish("timeup"); return; }
-
-  const maxIndex = GRID_SIZE * GRID_SIZE;
-
-  if (state.currentIdx == null || state.hitsOnCurrent >= state.changeAfterHits) {
-    state.currentIdx = pickOtherIndex(state.currentIdx, maxIndex);
-    state.hitsOnCurrent = 0;
-  }
-
-  state.isActive = true;
-  state.isGreen = false;
-
-  clearCells();
-  lightCell(state.currentIdx, "red");
-
-  const switchDelayMs = Math.floor(500 + Math.random() * (state.maxWaitSec * 1000 - 500));
-  const plannedGreenTs = performance.now() + switchDelayMs;
-
-  state.ticker = setInterval(() => {
-    const now = performance.now();
-
-    if (!state.isGreen && now >= plannedGreenTs) {
-      state.isGreen = true;
-      state.greenStartTs = now;
-      state.lastTickTs = now;
-      lightCell(state.currentIdx, "green");
-
-      state.greenWindowTimeout = setTimeout(() => {
-        if (state.isActive && state.isGreen) endRound(false, null);
-      }, state.greenWindowMs);
-    }
-
-    if (state.isGreen) {
-      const delta = now - state.lastTickTs;
-      state.lastTickTs = now;
-      state.remainingMs = Math.max(0, state.remainingMs - delta);
-      updateHud();
-
-      if (state.remainingMs <= 0) {
-        endRound(false, null);
-        finish("timeup");
-      }
-    }
-  }, TICK_MS);
 }
 
 function endRound(hit, clickTime) {
@@ -252,7 +202,7 @@ function endRound(hit, clickTime) {
   updateHud();
 
   if (state.remainingMs > 0 && state.running) {
-    setTimeout(() => { runRound(); }, 320);
+    setTimeout(runRound, 320);
   }
 }
 
@@ -261,11 +211,66 @@ function onCellClick(e) {
   const idx = Number(e.currentTarget?.dataset?.idx);
   const now = performance.now();
 
-  if (idx === state.currentIdx && state.isGreen) {
-    endRound(true, now);
-  } else {
-    endRound(false, null);
+  if (idx === state.currentIdx && state.isGreen) endRound(true, now);
+  else endRound(false, null);
+}
+
+function runRound() {
+  if (!state.running) return;
+
+  // Safety gegen Parallel-Intervals
+  clearTimers();
+
+  if (state.remainingMs <= 0) {
+    finish("timeup", true);
+    return;
   }
+
+  const maxIndex = GRID_SIZE * GRID_SIZE;
+
+  if (state.currentIdx == null || state.hitsOnCurrent >= state.changeAfterHits) {
+    state.currentIdx = pickOtherIndex(state.currentIdx, maxIndex);
+    state.hitsOnCurrent = 0;
+  }
+
+  state.isActive = true;
+  state.isGreen = false;
+
+  clearCells();
+  lightCell(state.currentIdx, "red");
+
+  const span = Math.max(0, state.maxWaitSec * 1000 - 500);
+  const switchDelayMs = Math.floor(500 + Math.random() * span);
+  const plannedGreenTs = performance.now() + switchDelayMs;
+
+  state.ticker = setInterval(() => {
+    const now = performance.now();
+
+    if (!state.isGreen && now >= plannedGreenTs) {
+      state.isGreen = true;
+      state.greenStartTs = now;
+      state.lastTickTs = now;
+
+      lightCell(state.currentIdx, "green");
+
+      state.greenWindowTimeout = setTimeout(() => {
+        if (state.isActive && state.isGreen) endRound(false, null);
+      }, state.greenWindowMs);
+    }
+
+    if (state.isGreen) {
+      const delta = now - state.lastTickTs;
+      state.lastTickTs = now;
+
+      state.remainingMs = Math.max(0, state.remainingMs - delta);
+      updateHud();
+
+      if (state.remainingMs <= 0) {
+        endRound(false, null);
+        finish("timeup", true);
+      }
+    }
+  }, TICK_MS);
 }
 
 export function startGridTiming(config) {
@@ -273,8 +278,9 @@ export function startGridTiming(config) {
   if (!screen) return;
 
   ensureUI();
-
   clearTimers();
+  clearCells();
+
   state = {
     ...state,
     running: true,
@@ -307,19 +313,24 @@ export function startGridTiming(config) {
     hitCount: 0,
   };
 
-  updateHud();
-
   window.lastGridTimingDifficulty = state.diffKey;
+
+  updateHud();
+  showScreen("gridtiming");
 
   setTimeout(() => {
     if (state.running) runRound();
   }, 300);
-
-  showScreen("gridtiming");
 }
 
 export function stopGridTiming(reason = "abort", record = false) {
   if (!state.running) return;
-  if (!record) { state.running = false; clearTimers(); clearCells(); return; }
+  if (!record) {
+    state.running = false;
+    state.isActive = false;
+    clearTimers();
+    clearCells();
+    return;
+  }
   finish(reason, record);
 }

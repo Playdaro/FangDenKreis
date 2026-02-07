@@ -24,6 +24,7 @@ function generateMediumPrompt() {
 export function startMindMedium() {
   runMindSwitch({
     modeLabel: "Medium",
+    label: 'Mittel',
     durationMs: 40000,
     stepTimeoutMs: 4000,
     generatePrompt: generateMediumPrompt,

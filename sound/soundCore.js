@@ -1,10 +1,15 @@
-// soundCore.js – Master HUD + Master Playfield
-import { showScreen } from "../screens.js";
+// soundCore.js – GLOBAL-KONFORM (wie Grid / Simon) + BEWEGUNG + Größe pro Difficulty + INGAME BACK
 
-const $ = (s, r = document) => r.querySelector(s);
+import { showScreen } from "../screens.js";
+import { endGame } from "../core.js";
+import { setText } from "../result.js";
+
+const $ = (id) => document.getElementById(id);
 const now = () => performance.now();
 
-// Farb-Mapping
+// --------------------------------------------------
+// CONFIG / HELPERS
+// --------------------------------------------------
 const COLOR_MAP = {
   rot:  { name: "Rot",  code: "#e74c3c" },
   grün: { name: "Grün", code: "#2ecc71" },
@@ -12,7 +17,6 @@ const COLOR_MAP = {
   blau: { name: "Blau", code: "#3498db" },
 };
 
-// einfache Sprach-Ausgabe
 function speak(text) {
   try {
     if (!("speechSynthesis" in window)) return;
@@ -23,305 +27,315 @@ function speak(text) {
   } catch {}
 }
 
-function getBaseSpeed(cfg) {
-  switch (cfg.label) {
-    case "hard": return 260;
-    case "medium": return 220;
-    case "easy":
-    default: return 180;
-  }
-}
-
-function pickBallSizePx() {
+function pickBallSizePx(cfg) {
+  if (cfg?.ballSizePx) return cfg.ballSizePx;
   return window.matchMedia("(max-width: 768px)").matches ? 52 : 40;
 }
 
-// Miss-Flash
-function triggerMissFlash() {
-  const host = document.getElementById("screen-sound");
-  if (!host) return;
-  host.classList.remove("flash-miss");
-  void host.offsetWidth; // Reflow
-  host.classList.add("flash-miss");
-  setTimeout(() => host.classList.remove("flash-miss"), 180);
-}
-
-// ----------- Haupt-API -------------
+// --------------------------------------------------
+// PUBLIC API
+// --------------------------------------------------
 export function startSoundColor(cfg) {
   showScreen("sound");
 
-  const host = document.getElementById("screen-sound");
-  if (!host) throw new Error("#screen-sound fehlt");
+  const arena   = $("sd-arena");
+  const scoreEl = $("sd-score");
+  const missEl  = $("sd-misses");
+  const timeEl  = $("sd-time");
+  const hintEl  = $("sd-hint");
+  const backBtn = $("sd-back");
 
-  const arena = document.getElementById("sd-arena");
-  const backBtn = document.getElementById("sd-back");
+  if (!arena) {
+    console.warn("[Sound] #sd-arena fehlt");
+    return;
+  }
 
-  const scoreEl = document.getElementById("sd-score");
-  const missEl  = document.getElementById("sd-misses");
-  const timeEl  = document.getElementById("sd-time");
-  const hintEl  = document.getElementById("sd-hint");
-
-  if (!arena) throw new Error("#sd-arena fehlt im HTML");
-  if (!scoreEl || !timeEl) console.warn("[sound] HUD-Elemente fehlen (sd-score/sd-time)");
-  if (!missEl) console.warn("[sound] HUD-Element fehlt: sd-misses");
-  if (!hintEl) console.warn("[sound] Hint fehlt: sd-hint");
-
-  // Arena leeren (nur Bälle, Hint bleibt)
+  // Alte Bälle entfernen (Hint bleibt)
   arena.querySelectorAll(".sd-ball").forEach(n => n.remove());
 
-  // --- State ---
-  const totalMs   = cfg.totalMs || 30000;
-  const baseSpeed = cfg.speedPxPerSec || getBaseSpeed(cfg);
-  const ballCount = Math.max(1, Math.min(4, cfg.count || 2));
+  // --------------------------------------------------
+  // STATE
+  // --------------------------------------------------
+  const totalMs       = cfg.totalMs || 30000;
+  const ballCount     = Math.max(1, Math.min(4, cfg.count || 2));
+  const speedPxPerSec = cfg.speedPxPerSec || 180;
 
-  const playColors = (cfg.colors || ["rot", "grün"]).map(c =>
-    COLOR_MAP[(c || "").toLowerCase()] || COLOR_MAP.rot
+  const playColors = (cfg.colors || ["rot"]).map(
+    c => COLOR_MAP[(c || "").toLowerCase()] || COLOR_MAP.rot
   );
 
-  const balls = [];
-  const rts   = [];
-  let score   = 0;
-  let misses  = 0;
+  let score = 0;
+  let misses = 0;
+  const rtSamples = [];
+
   let startTs = now();
   let endTs   = startTs + totalMs;
   let lastPromptTs = startTs;
   let currentTarget = null;
 
-  const sizePx = pickBallSizePx();
-  const r      = sizePx / 2;
+  const sizePx = pickBallSizePx(cfg);
+  const r = sizePx / 2;
 
-  // Arena-Größe
-  function getSize() {
+  const balls = [];
+
+  let aborted = false;
+
+  function updateHUD(tNow) {
+    const remain = Math.max(0, endTs - tNow);
+    if (timeEl)  timeEl.textContent  = String(Math.ceil(remain / 1000));
+    if (scoreEl) scoreEl.textContent = String(score);
+    if (missEl)  missEl.textContent  = String(misses);
+  }
+
+  // --------------------------------------------------
+  // BALLS / PHYSICS
+  // --------------------------------------------------
+  function getArenaSize() {
     const rect = arena.getBoundingClientRect();
     return { w: rect.width, h: rect.height };
   }
-  let { w: arenaW, h: arenaH } = getSize();
+
+  let { w: arenaW, h: arenaH } = getArenaSize();
 
   function onResize() {
-    const s = getSize();
+    const s = getArenaSize();
     arenaW = s.w;
     arenaH = s.h;
   }
   window.addEventListener("resize", onResize);
 
-  function updateHUD(tNow) {
-    const remain = Math.max(0, endTs - tNow);
-
-    if (timeEl) timeEl.textContent = String(Math.ceil(remain / 1000));
-    if (scoreEl) scoreEl.textContent = String(score);
-    if (missEl) missEl.textContent = String(misses);
-  }
-
-  // Bälle erzeugen
   function createBalls() {
     balls.length = 0;
     arena.querySelectorAll(".sd-ball").forEach(n => n.remove());
+
+    const s = getArenaSize();
+    arenaW = s.w;
+    arenaH = s.h;
 
     for (let i = 0; i < ballCount; i++) {
       const c = playColors[i % playColors.length];
       const el = document.createElement("div");
 
       el.className = "sd-ball";
-      el.style.width  = sizePx + "px";
+      el.style.width = sizePx + "px";
       el.style.height = sizePx + "px";
       el.style.background = c.code;
       el.dataset.colorName = c.name;
 
-      const x = r + Math.random() * (arenaW - 2 * r);
-      const y = r + Math.random() * (arenaH - 2 * r);
+      // Startposition
+      const x = r + Math.random() * Math.max(0, arenaW - 2 * r);
+      const y = r + Math.random() * Math.max(0, arenaH - 2 * r);
 
+      // Startgeschwindigkeit
       const angle = Math.random() * Math.PI * 2;
-      const vx = Math.cos(angle) * baseSpeed;
-      const vy = Math.sin(angle) * baseSpeed;
+      const vx = Math.cos(angle) * speedPxPerSec;
+      const vy = Math.sin(angle) * speedPxPerSec;
 
-      balls.push({ el, x, y, vx, vy, r });
+      balls.push({ el, x, y, vx, vy });
+
+      // initial render
+      el.style.left = (x - r) + "px";
+      el.style.top  = (y - r) + "px";
+
       arena.appendChild(el);
     }
   }
 
-  // Neues Ziel wählen + ansagen + Hint setzen
-  function chooseNewTarget() {
-    const idx = Math.floor(Math.random() * playColors.length);
-    const target = playColors[idx];
-    currentTarget = target.name;
-
-    if (hintEl) hintEl.textContent = `Klicke: ${target.name}`;
-    speak(target.name);
-    lastPromptTs = now();
-  }
-
-  function resetBallsAndPrompt() {
-    const s = getSize();
-    arenaW = s.w;
-    arenaH = s.h;
-
-    for (const b of balls) {
-      b.x = r + Math.random() * (arenaW - 2 * r);
-      b.y = r + Math.random() * (arenaH - 2 * r);
-      const angle = Math.random() * Math.PI * 2;
-      b.vx = Math.cos(angle) * baseSpeed;
-      b.vy = Math.sin(angle) * baseSpeed;
-    }
-
-    chooseNewTarget();
-  }
-
-  // Physik: Wände + Ball-Ball-Kollision
   function updatePhysics(dtMs) {
-    const dtSec = dtMs / 1000;
+    const dt = dtMs / 1000;
 
+    // 1) Bewegung + Wand-Bounce
     for (const b of balls) {
-      b.x += b.vx * dtSec;
-      b.y += b.vy * dtSec;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
 
+      // Bounce links/rechts
       if (b.x - r < 0) { b.x = r; b.vx = Math.abs(b.vx); }
       else if (b.x + r > arenaW) { b.x = arenaW - r; b.vx = -Math.abs(b.vx); }
 
+      // Bounce oben/unten
       if (b.y - r < 0) { b.y = r; b.vy = Math.abs(b.vy); }
       else if (b.y + r > arenaH) { b.y = arenaH - r; b.vy = -Math.abs(b.vy); }
     }
+
+    // 2) Ball–Ball Kollisionen (einfach, schnell, reicht bei max 4 Bällen)
+    const minDist = 2 * r;
+    const minDistSq = minDist * minDist;
 
     for (let i = 0; i < balls.length; i++) {
       for (let j = i + 1; j < balls.length; j++) {
         const a = balls[i];
         const b = balls[j];
+
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const distSq = dx * dx + dy * dy;
-        const minDist = a.r + b.r;
 
-        if (distSq > 0 && distSq < minDist * minDist) {
+        if (distSq > 0 && distSq < minDistSq) {
           const dist = Math.sqrt(distSq) || 0.001;
-          const overlap = (minDist - dist) / 2;
           const nx = dx / dist;
           const ny = dy / dist;
 
+          // Überlappung auflösen (auseinander schieben)
+          const overlap = (minDist - dist) / 2;
           a.x -= nx * overlap;
           a.y -= ny * overlap;
           b.x += nx * overlap;
           b.y += ny * overlap;
 
-          const tmpVx = a.vx;
-          const tmpVy = a.vy;
+          // "Elastic" light: Geschwindigkeiten tauschen (für gleiche Masse ok)
+          const tmpVx = a.vx, tmpVy = a.vy;
           a.vx = b.vx; a.vy = b.vy;
           b.vx = tmpVx; b.vy = tmpVy;
+
+          // Nach dem Schieben nochmal sicherstellen, dass sie nicht aus der Arena rutschen
+          a.x = Math.max(r, Math.min(arenaW - r, a.x));
+          a.y = Math.max(r, Math.min(arenaH - r, a.y));
+          b.x = Math.max(r, Math.min(arenaW - r, b.x));
+          b.y = Math.max(r, Math.min(arenaH - r, b.y));
         }
       }
     }
 
+    // 3) Render
     for (const b of balls) {
       b.el.style.left = (b.x - r) + "px";
       b.el.style.top  = (b.y - r) + "px";
     }
   }
+  
+  // --------------------------------------------------
+  // TARGET
+  // --------------------------------------------------
+  function chooseTarget() {
+    const idx = Math.floor(Math.random() * playColors.length);
+    currentTarget = playColors[idx].name;
 
-  function handleBallClick(e) {
-    e.preventDefault?.();
-    const el = e.currentTarget;
-    const chosen = el.dataset.colorName;
-    if (!chosen) return;
+    if (hintEl) hintEl.textContent = `Klicke: ${currentTarget}`;
+    speak(currentTarget);
+    lastPromptTs = now();
+  }
 
+  // --------------------------------------------------
+  // INPUT
+  // --------------------------------------------------
+  function onBallClick(e) {
+    const chosen = e.currentTarget.dataset.colorName;
     const tNow = now();
+
     if (chosen === currentTarget) {
-      const rt = Math.max(0, tNow - lastPromptTs);
-      rts.push(rt);
+      const rt = tNow - lastPromptTs;
+      if (rt > 0 && rt < 5000) rtSamples.push(rt);
+
       score++;
-      resetBallsAndPrompt();
+      chooseTarget();
     } else {
       misses++;
-      triggerMissFlash();
     }
+    updateHUD(tNow);
   }
 
-  function handleArenaClick(e) {
+  function onArenaMiss(e) {
     if (balls.some(b => b.el === e.target)) return;
     misses++;
-    triggerMissFlash();
+    updateHUD(now());
   }
 
-  arena.addEventListener("click", handleArenaClick);
+  arena.addEventListener("click", onArenaMiss);
 
-  function finish() {
+  // --------------------------------------------------
+  // ABORT (INGAME BACK)
+  // --------------------------------------------------
+  function cleanupNoResult() {
     window.removeEventListener("resize", onResize);
-    arena.removeEventListener("click", handleArenaClick);
-    balls.forEach(b => b.el.removeEventListener("click", handleBallClick));
+    arena.removeEventListener("click", onArenaMiss);
+    balls.forEach(b => b.el.removeEventListener("click", onBallClick));
+  }
 
-    const scrRes = document.getElementById("screen-sound-result");
-    if (!scrRes) { showScreen("menu"); return; }
+  function abortToMenu() {
+    if (aborted) return;
+    aborted = true;
 
-    const avg = rts.length
-      ? Math.round(rts.reduce((a, b) => a + b, 0) / rts.length)
+    cleanupNoResult();
+
+    try { window.speechSynthesis?.cancel?.(); } catch {}
+
+    showScreen("menu");
+  }
+
+  backBtn?.addEventListener("click", abortToMenu);
+
+  // --------------------------------------------------
+  // FINISH (Timeout)
+  // --------------------------------------------------
+  function finish() {
+    cleanupNoResult();
+
+    const avgRtMs = rtSamples.length
+      ? Math.round(rtSamples.reduce((a, b) => a + b, 0) / rtSamples.length)
       : 0;
 
-    const diffEl   = scrRes.querySelector("#snd-res-diff");
-    const scoreOut = scrRes.querySelector("#snd-res-score");
-    const avgOut   = scrRes.querySelector("#snd-res-avg");
-    const missOut  = scrRes.querySelector("#snd-res-misses");
-    const endOut   = scrRes.querySelector("#snd-res-endreason");
+    const total = score + misses;
+    const accuracy = total > 0 ? score / total : 1;
 
-    if (diffEl)   diffEl.textContent   = cfg.label || "–";
-    if (scoreOut) scoreOut.textContent = String(score);
-    if (avgOut)   avgOut.textContent   = avg + " ms";
-    if (missOut)  missOut.textContent  = String(misses);
-    if (endOut)   endOut.textContent   = "⏱️ Timeout";
+    endGame({
+      modeGroup: "audio",
+      modeId: `audio-color-${cfg.label || "easy"}`,
+      difficulty: cfg.label || null,
+
+      score,
+      hits: score,
+      misses,
+      avgRt: avgRtMs / 1000,
+      accuracy,
+      durationSec: totalMs / 1000,
+      finishedAt: new Date().toISOString(),
+    });
+
+    setText("snd-res-diff", cfg.label || "–");
+    setText("snd-res-score", String(score));
+    setText("snd-res-avg", avgRtMs + " ms");
+    setText("snd-res-misses", String(misses));
+    setText("snd-res-endreason", "⏱️ Timeout");
 
     showScreen("sound-result");
-
-    try {
-      const total = score + misses;
-      const runArg = {
-        modeGroup:   "audio",
-        modeId:      "audio-color",
-        difficulty:  cfg.label || null,
-        score,
-        hits:        score,
-        misses,
-        total,
-        avgRt:       avg / 1000,
-        accuracy:    total > 0 ? score / total : 1,
-        hpm:         totalMs > 0 ? (score / (totalMs / 60000)) : 0,
-        bestStreak:  0,
-        durationSec: totalMs / 1000,
-        finishedAt:  new Date().toISOString()
-      };
-      window.endGame?.(runArg);
-    } catch (e) {
-      console.warn("[soundCore] endGame-Statistikfehler", e);
-    }
   }
 
-  $("#sd-back")?.addEventListener("click", () => {
-    window.removeEventListener("resize", onResize);
-    arena.removeEventListener("click", handleArenaClick);
-    balls.forEach(b => b.el.removeEventListener("click", handleBallClick));
-    showScreen("menu");
-  }, { once: true });
-
-  // Initial
+  // --------------------------------------------------
+  // START
+  // --------------------------------------------------
   startTs = now();
   endTs = startTs + totalMs;
 
   score = 0;
   misses = 0;
-  updateHUD(now());
 
   createBalls();
-  balls.forEach(b => b.el.addEventListener("click", handleBallClick));
-  resetBallsAndPrompt();
+  balls.forEach(b => b.el.addEventListener("click", onBallClick));
+  chooseTarget();
+  updateHUD(now());
 
   let lastFrameTs = now();
 
   function loop() {
+    if (aborted) return;
+
     const tNow = now();
-    if (tNow >= endTs) { finish(); return; }
+    if (tNow >= endTs) {
+      finish();
+      return;
+    }
 
     const dt = tNow - lastFrameTs;
     lastFrameTs = tNow;
 
     updatePhysics(dt);
     updateHUD(tNow);
+
     requestAnimationFrame(loop);
   }
 
   requestAnimationFrame(loop);
+
+  window.lastSoundDifficulty = cfg.label || "easy";
 }

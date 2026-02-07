@@ -3,14 +3,38 @@ console.log("[MindSwitchRunner] LOADED", import.meta.url);
 
 import { openDifficultySelect } from "../difficultySelect.js";
 import { showScreen } from "../screens.js";
+import { bindResultButtons, showResult } from "../result.js";
 
 import { startMindEasy } from "./mindSwitchEasy.js";
 import { startMindMedium } from "./mindSwitchMedium.js";
 import { startMindHard } from "./mindSwitchHard.js";
 
+// ============================================================
+// RESULT BUTTONS (Retry/Menu) – GLOBAL result.js
+// (Optional: kann bleiben, ist aber redundant wenn finish() showResult nutzt)
+// ============================================================
+function bindMindResultOnce() {
+  bindResultButtons({
+    menuBtnId: "mind-res-menu",
+    retryBtnId: "mind-res-retry",
+    onRetry: async () => {
+      const d = window.lastMindSwitchDifficulty || "easy";
+      if (d === "easy") startMindEasy();
+      else if (d === "medium") startMindMedium();
+      else startMindHard();
+    },
+    menuKey: "menu",
+  });
+}
+document.addEventListener("DOMContentLoaded", bindMindResultOnce);
+bindMindResultOnce();
+
+// ============================================================
+// MENU → DifficultySelect
+// ============================================================
 document.getElementById("btn-mind")?.addEventListener("click", () => {
   openDifficultySelect({
-    title: "Mind Switch",
+    modeKey: "mind",   // 👈 DAS ist der einzige nötige Fix
     onStart: {
       easy: () => {
         window.lastMindSwitchDifficulty = "easy";
@@ -30,8 +54,6 @@ document.getElementById("btn-mind")?.addEventListener("click", () => {
     },
   });
 });
-
-
 
 
 // ============================================================
@@ -64,8 +86,8 @@ export function runMindSwitch(config) {
       </div>
 
       <div id="mind-playfield" class="playfield mind-playfield">
-        <button id="mind-left" class="mind-half mind-left" type="button" aria-label="Links"></button>
-        <button id="mind-right" class="mind-half mind-right" type="button" aria-label="Rechts"></button>
+        <button id="mind-left" class="mind-left" type="button" aria-label="Links"></button>
+        <button id="mind-right" class="mind-right" type="button" aria-label="Rechts"></button>
         <div id="mind-hint" class="ms-hint">–</div>
       </div>
 
@@ -82,7 +104,7 @@ export function runMindSwitch(config) {
   const streakEl = document.getElementById("mind-streak");
   const timerEl = document.getElementById("mind-timer-val");
 
-  if (!hintEl || !btnLeft || !btnRight || !timerEl) {
+  if (!hintEl || !btnLeft || !btnRight || !timerEl || !hitsEl || !missesEl || !streakEl) {
     console.error("[MindSwitch] UI-Elemente fehlen (Runner DOM).");
     return;
   }
@@ -123,10 +145,9 @@ export function runMindSwitch(config) {
 
     const p = config.generatePrompt();
 
-    // Bei dir ist correctSide vermutlich "links"/"rechts"
     if (p.correctSide === "links") currentCorrectSide = "left";
     else if (p.correctSide === "rechts") currentCorrectSide = "right";
-    else currentCorrectSide = p.correctSide; // falls schon left/right kommt
+    else currentCorrectSide = p.correctSide;
 
     // Hint dauerhaft sichtbar, mittig
     hintEl.innerHTML = `<span style="color:${p.color}">${p.promptText}</span>`;
@@ -179,46 +200,31 @@ export function runMindSwitch(config) {
       ? Math.round(stepTimes.reduce((a, b) => a + b, 0) / stepTimes.length)
       : 0;
 
-    document.getElementById("mind-res-mode").textContent = config.modeLabel || "–";
-    document.getElementById("mind-res-hits").textContent = String(hits);
-    document.getElementById("mind-res-misses").textContent = String(misses);
-    document.getElementById("mind-res-streak").textContent = String(bestStreak);
-    document.getElementById("mind-res-avg").textContent = avg + " ms";
-    document.getElementById("mind-res-acc").textContent =
-      hits + misses === 0 ? "0%" : Math.round((hits / (hits + misses)) * 100) + "%";
-    document.getElementById("mind-res-reason").textContent = reason;
+    const acc =
+      hits + misses === 0
+        ? "0%"
+        : Math.round((hits / (hits + misses)) * 100) + "%";
 
-    showScreen("mind-result");
+    showResult({
+      resultScreenKey: "mind-result",
+      fields: [
+        ["mind-res-mode", config.modeLabel || "–"],
+        ["mind-res-hits", hits],
+        ["mind-res-misses", misses],
+        ["mind-res-streak", bestStreak],
+        ["mind-res-avg", `${avg} ms`],
+        ["mind-res-acc", acc],
+        ["mind-res-reason", reason],
+      ],
+      menuBtnId: "mind-res-menu",
+      retryBtnId: "mind-res-retry",
+      onRetry: async () => {
+        const d = window.lastMindSwitchDifficulty || "easy";
+        if (d === "easy") startMindEasy();
+        else if (d === "medium") startMindMedium();
+        else startMindHard();
+      },
+      menuKey: "menu",
+    });
   }
 }
-// ============================================================
-// RESULT BUTTONS (Retry/Menu) – ROBUST BINDING
-// ============================================================
-
-function bindMindResultButtons() {
-  const menuBtn  = document.getElementById("mind-res-menu");
-  const retryBtn = document.getElementById("mind-res-retry");
-
-  if (menuBtn) {
-    menuBtn.onclick = () => {
-      showScreen("menu");
-    };
-  }
-
-  if (retryBtn) {
-    retryBtn.onclick = async () => {
-      const d = window.lastMindSwitchDifficulty || "easy";
-      try {
-        if (d === "easy") (await import("./mindSwitchEasy.js")).startMindEasy();
-        else if (d === "medium") (await import("./mindSwitchMedium.js")).startMindMedium();
-        else (await import("./mindSwitchHard.js")).startMindHard();
-      } catch (err) {
-        console.error("[MindSwitch] Retry fehlgeschlagen:", err);
-      }
-    };
-  }
-}
-
-// DOM ready + Fallback (für Live Server / Reloads)
-document.addEventListener("DOMContentLoaded", bindMindResultButtons);
-bindMindResultButtons();

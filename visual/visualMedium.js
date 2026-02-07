@@ -1,10 +1,13 @@
-import { startVisual } from './visualCore.js';
+// visualMedium.js – nur Config (keine Starts, keine Imports)
+import { startVisualCore } from "./visualCore.js";
 
-export function startVisualMedium() {
-  startVisual({
-    totalMs: 30000,
-    perStepMs: 750,       // 0.75s Zeitfenster
-    color: '#f1c40f',     // gelb
-    label: 'medium'
+export function startMedium() {
+  startVisualCore({
+    diffKey: "medium",
+    label: "Mittel",
+    sessionMs: 30000,
+    hitWindowMs: 750,
+    circleSize: 52,
+    color: "#f1c40f",
   });
 }

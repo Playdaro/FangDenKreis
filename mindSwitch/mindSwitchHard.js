@@ -7,6 +7,7 @@ const sides = ["links", "rechts"];
 export function startMindHard() {
   runMindSwitch({
     modeLabel: "Hard",
+    label: 'Schwer',
     durationMs: 45000,
     stepTimeoutMs: 4000,
 

@@ -1,255 +1,291 @@
-// simonBase.js – Standalone "Simon Sagt" (3×3) auf #screen-memory / #memory-grid (Master-HUD kompatibel)
+// simonBase.js – Simon sagt (GLOBAL-KONFORM)
+// - nutzt endGame() + showScreen()
+// - KEINE CustomEvents
+// - Result-Buttons kommen aus result.js (bindResultButtons im Runner)
+
+import { showScreen } from "../screens.js";
+import { endGame } from "../core.js";
+import { setText } from "../result.js";
 
 const GRID_SIZE = 3;
 const $ = (id) => document.getElementById(id);
-const getGrid = () => $("memory-grid");
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const randCell = () => Math.floor(Math.random() * GRID_SIZE * GRID_SIZE);
 
-// HUD helper
-function setText(id, val) {
-  const el = $(id);
-  if (el) el.textContent = String(val);
-}
+let cleanupFn = null;
+let finishFn = null;
 
-function setInputEnabled(enabled) {
-  const grid = getGrid();
-  if (!grid) return;
-  grid.classList.toggle("simon-disabled", !enabled);
-}
-
-function setActive(idx, active) {
-  const grid = getGrid();
-  if (!grid) return;
-  const cell = grid.querySelector(`[data-index="${idx}"]`);
-  if (!cell) return;
-  cell.classList.toggle("simon-active", active);
-}
-
-function buildGrid() {
-  const grid = getGrid();
-  if (!grid) return;
-
-  grid.innerHTML = "";
-
-  // Master: nutzt das gleiche Board-Layout wie Grid/GridTiming (100% vom playfield)
-  grid.classList.add("grid-board");
-  grid.classList.remove("grid-game");
-
-  for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
-    const cell = document.createElement("button");
-    cell.type = "button";
-    cell.className = "grid-cell simon-cell";
-    cell.dataset.index = String(i);
-    grid.appendChild(cell);
+// ======================================================
+// PUBLIC API
+// ======================================================
+export function stopSimon(reason = "abort", record = false) {
+  if (typeof finishFn === "function") {
+    finishFn(reason, record);
+  } else if (cleanupFn) {
+    cleanupFn();
   }
 }
 
-let lastCleanup = null;
-
 export function startSimon(options = {}) {
+  stopSimon("abort", false);
+
   const {
+    diffKey = "easy",
+    label = "–",
     durationSec = 30,
     startSeqLen = 1,
     showMsBase = 700,
     showMsDecay = 0.98,
     betweenMs = 250,
-    difficulty = "easy",
-    onError = "repeat",
+    modeId = `memory-simon-${diffKey}`,
+    onError = "repeat", // repeat | shrink
   } = options;
 
-  // Vorherigen Run beenden
-  if (typeof lastCleanup === "function") {
-    try { lastCleanup(); } catch {}
-    lastCleanup = null;
-  }
-
-  const grid = getGrid();
+  const grid = $("memory-grid");
   if (!grid) {
-    console.warn("[Simon] #memory-grid nicht gefunden.");
+    console.warn("[Simon] #memory-grid fehlt");
     return;
   }
 
-  buildGrid();
+  buildGrid(grid);
 
-  // =====================
-  // HUD (MASTER)
-  // =====================
-  let remaining = Number(durationSec) || 30;
-
+  // ======================================================
+  // STATE / HUD
+  // ======================================================
+  let remainingMs = durationSec * 1000;
   let score = 0;
   let misses = 0;
+  let streak = 0;
   let bestStreak = 0;
-  let currentStreak = 0;
 
-  setText("memory-score", score);
-  setText("memory-misses", misses);
-  setText("memory-beststreak", bestStreak);
-  setText("memory-time", Math.ceil(remaining));
-
-  // =====================
-  // STATE
-  // =====================
   let sequence = [];
   let userIndex = 0;
-
   let isShowing = false;
-  let isFinished = false;
+  let finished = false;
 
+  const rtSamples = [];
+  let lastClickTs = 0;
   let timerId = null;
   const startedAt = performance.now();
 
-  // ---------------- TIMER ----------------
+  function updateHUD() {
+    $("memory-score").textContent = String(score);
+    $("memory-misses").textContent = String(misses);
+    $("memory-beststreak").textContent = String(bestStreak);
+    $("memory-time").textContent = String(
+      Math.ceil(remainingMs / 1000)
+    );
+  }
+
+  updateHUD();
+
+  // ======================================================
+  // TIMER
+  // ======================================================
   function tick() {
-    if (isFinished) return;
+    if (finished) return;
+    remainingMs -= 100;
 
-    remaining -= 0.1;
-
-    if (remaining <= 0) {
-      remaining = 0;
-      setText("memory-time", 0);
-      finish("timeup");
+    if (remainingMs <= 0) {
+      remainingMs = 0;
+      updateHUD();
+      finish("timeup", true);
       return;
     }
-
-    setText("memory-time", Math.ceil(remaining));
+    updateHUD();
   }
 
-  function startCountdown() {
-    if (timerId !== null) return;
-    timerId = setInterval(tick, 100);
+  function startTimer() {
+    if (!timerId) timerId = setInterval(tick, 100);
   }
 
-  function stopCountdown() {
-    if (timerId !== null) {
+  function stopTimer() {
+    if (timerId) {
       clearInterval(timerId);
       timerId = null;
     }
   }
 
-  // ---------------- SEQUENZEN ----------------
-  function extendSequence(count = 1) {
-    for (let i = 0; i < count; i++) sequence.push(randCell());
+  // ======================================================
+  // SEQUENCE
+  // ======================================================
+  function extendSequence(n = 1) {
+    for (let i = 0; i < n; i++) sequence.push(randCell());
   }
 
   async function showSequence() {
     isShowing = true;
-    stopCountdown(); // Timer pausieren während Anzeigen
-    setInputEnabled(false);
+    stopTimer();
+    setInput(false);
 
     const len = sequence.length;
-    const showMs = Math.max(260, Math.floor(showMsBase * Math.pow(showMsDecay, len)));
+    const showMs = Math.max(
+      260,
+      Math.floor(showMsBase * Math.pow(showMsDecay, len))
+    );
 
-    for (let i = 0; i < len; i++) {
-      const idx = sequence[i];
-      setActive(idx, true);
+    for (const idx of sequence) {
+      flash(idx, true);
       await sleep(showMs);
-      setActive(idx, false);
+      flash(idx, false);
       await sleep(betweenMs);
     }
 
     userIndex = 0;
     isShowing = false;
-    setInputEnabled(true);
-    startCountdown(); // Timer läuft weiter
+    setInput(true);
+    lastClickTs = performance.now();
+    startTimer();
   }
 
-  function scheduleShow(delayMs = 400) {
-    setTimeout(() => {
-      if (!isFinished) showSequence();
-    }, delayMs);
+  function onCorrect() {
+    score++;
+    streak++;
+    bestStreak = Math.max(bestStreak, streak);
+    updateHUD();
+
+    extendSequence(1);
+    setTimeout(showSequence, 500);
   }
 
-  function applyErrorPolicy() {
+  function onMiss() {
+    misses++;
+    streak = 0;
+    updateHUD();
+
     if (onError === "shrink" && sequence.length > 1) {
       sequence.pop();
     }
+    setTimeout(showSequence, 500);
   }
 
-  function handleCorrectSequence() {
-    score += 1;
-    currentStreak += 1;
-    bestStreak = Math.max(bestStreak, currentStreak);
+  // ======================================================
+  // FINISH
+  // ======================================================
+  function finish(reason = "timeup", record = true) {
+    if (finished) return;
+    finished = true;
 
-    setText("memory-score", score);
-    setText("memory-beststreak", bestStreak);
+    stopTimer();
+    setInput(false);
 
-    extendSequence(1);
-    scheduleShow(600);
-  }
+    cleanup();
+    finishFn = null;
 
-  function handleMiss() {
-    misses++;
-    currentStreak = 0;
+    if (!record) return;
 
-    setText("memory-misses", misses);
-    setText("memory-beststreak", bestStreak);
+    const avgRt =
+      rtSamples.length > 0
+        ? rtSamples.reduce((a, b) => a + b, 0) / rtSamples.length
+        : 0;
 
-    applyErrorPolicy();
-    scheduleShow(600);
-  }
+    const accuracy =
+      score + misses > 0 ? score / (score + misses) : 1;
 
-  // ---------------- FINISH ----------------
-  function finish(reason) {
-    if (isFinished) return;
-    isFinished = true;
+    endGame({
+      modeGroup: "memory",
+      modeId,
+      difficulty: diffKey,
 
-    stopCountdown();
-    setInputEnabled(false);
-
-    const endedAt = performance.now();
-    const durationPlayed = (endedAt - startedAt) / 1000;
-
-    const detail = {
-      reason,
       score,
+      hits: score,
       misses,
       bestStreak,
-      difficulty,
-      duration: durationPlayed,
-      memoryMetrics: {
-        itemsPerSec: durationPlayed > 0 ? score / durationPlayed : 0,
-      },
+      avgRt,
+      accuracy,
+      durationSec,
+      finishedAt: new Date().toISOString(),
+    });
+
+    // RESULT UI
+    setText("mem-res-diff", label);
+    setText("mem-res-score", String(score));
+    setText("mem-res-misses", String(misses));
+    setText("mem-res-streak", String(bestStreak));
+    setText("mem-res-accuracy", `${Math.round(accuracy * 100)}%`);
+
+    showScreen("memory-result");
+  }
+
+  finishFn = finish;
+
+  // ======================================================
+  // INPUT
+  // ======================================================
+  const handlers = [];
+
+  grid.querySelectorAll(".simon-cell").forEach((cell) => {
+    const fn = () => {
+      if (finished || isShowing) return;
+
+      const idx = Number(cell.dataset.index);
+      const expected = sequence[userIndex];
+
+      const now = performance.now();
+      if (lastClickTs) {
+        const rt = (now - lastClickTs) / 1000;
+        if (rt > 0 && rt < 10) rtSamples.push(rt);
+      }
+      lastClickTs = now;
+
+      flash(idx, true);
+      setTimeout(() => flash(idx, false), 120);
+
+      if (idx === expected) {
+        userIndex++;
+        if (userIndex >= sequence.length) onCorrect();
+      } else {
+        onMiss();
+      }
     };
 
-    document.dispatchEvent(new CustomEvent("memorymode:finished", { detail }));
-  }
-
-  // ---------------- INPUT ----------------
-  const cells = Array.from(grid.querySelectorAll(".simon-cell"));
-  const cellHandlers = [];
-
-  function onCellClick(ev) {
-    if (isFinished || isShowing) return;
-
-    const idx = Number(ev.currentTarget.dataset.index);
-    const expected = sequence[userIndex];
-
-    if (idx === expected) {
-      userIndex++;
-      setActive(idx, true);
-      setTimeout(() => setActive(idx, false), 150);
-
-      if (userIndex >= sequence.length) {
-        handleCorrectSequence();
-      }
-    } else {
-      handleMiss();
-    }
-  }
-
-  cells.forEach((cell) => {
-    cell.addEventListener("click", onCellClick);
-    cellHandlers.push([cell, "click", onCellClick]);
+    cell.addEventListener("click", fn);
+    handlers.push([cell, fn]);
   });
 
-  // Cleanup
-  lastCleanup = () => {
-    stopCountdown();
-    cellHandlers.forEach(([el, type, fn]) => el.removeEventListener(type, fn));
-  };
+  function cleanup() {
+    handlers.forEach(([el, fn]) =>
+      el.removeEventListener("click", fn)
+    );
+    stopTimer();
+  }
 
-  // ================== START ==================
+  cleanupFn = cleanup;
+
+  // ======================================================
+  // START
+  // ======================================================
   extendSequence(startSeqLen);
-  scheduleShow(400);
+  setTimeout(showSequence, 400);
+  window.lastMemoryDifficulty = diffKey;
+}
+
+// ======================================================
+// HELPERS
+// ======================================================
+function buildGrid(grid) {
+  grid.innerHTML = "";
+  grid.classList.add("grid-board");
+
+  for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "grid-cell simon-cell";
+    btn.dataset.index = String(i);
+    grid.appendChild(btn);
+  }
+}
+
+function flash(idx, on) {
+  const el = document.querySelector(
+    `#memory-grid [data-index="${idx}"]`
+  );
+  if (el) el.classList.toggle("simon-active", on);
+}
+
+function setInput(enabled) {
+  $("memory-grid")?.classList.toggle(
+    "simon-disabled",
+    !enabled
+  );
 }

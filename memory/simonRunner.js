@@ -1,67 +1,65 @@
-import { openDifficultySelect } from '../difficultySelect.js';
-import { showScreen } from '../screens.js';
+// simonRunner.js – FINAL (Grid-Pattern)
+import { openDifficultySelect } from "../difficultySelect.js";
+import { showScreen } from "../screens.js";
+import { bindResultButtons } from "../result.js";
 
-import { startSimonEasy } from './simonEasy.js';
-import { startSimonMedium } from './simonMedium.js';
-import { startSimonHard } from './simonHard.js';
+import { startSimonEasy } from "./simonEasy.js";
+import { startSimonMedium } from "./simonMedium.js";
+import { startSimonHard } from "./simonHard.js";
+import { stopSimon } from "./simonBase.js";
+
+// ============================================================
+// RESULT BUTTONS (GLOBAL)
+// ============================================================
+function bindMemoryResultOnce() {
+  bindResultButtons({
+    menuBtnId: "mem-res-menu",
+    retryBtnId: "mem-res-retry",
+    onRetry: () => {
+      const diff = window.lastMemoryDifficulty || "easy";
+      showScreen("memory");
+
+      if (diff === "easy") startSimonEasy();
+      else if (diff === "medium") startSimonMedium();
+      else startSimonHard();
+    },
+    menuKey: "menu",
+  });
+}
+
+document.addEventListener("DOMContentLoaded", bindMemoryResultOnce);
 
 // ============================
-// MENÜ → DIFFICULTY-SCREEN
+// MENU → DIFFICULTY
 // ============================
-document.getElementById('btn-memory')?.addEventListener('click', () => {
+document.getElementById("btn-memory")?.addEventListener("click", () => {
   openDifficultySelect({
-    title: 'Gedächtnis-Training',
+    modeKey: "memory",
     onStart: {
       easy: () => {
-        window.lastMemoryDifficulty = 'easy';
-        showScreen('memory');
+        window.lastMemoryDifficulty = "easy";
+        showScreen("memory");
         startSimonEasy();
       },
       medium: () => {
-        window.lastMemoryDifficulty = 'medium';
-        showScreen('memory');
+        window.lastMemoryDifficulty = "medium";
+        showScreen("memory");
         startSimonMedium();
       },
       hard: () => {
-        window.lastMemoryDifficulty = 'hard';
-        showScreen('memory');
+        window.lastMemoryDifficulty = "hard";
+        showScreen("memory");
         startSimonHard();
-      }
-    }
+      },
+    },
   });
 });
 
-// ============================
-// INGAME BACK BUTTON
-// ============================
-document.getElementById('memory-back')?.addEventListener('click', () => {
-  showScreen('menu');
-});
 
 // ============================
-// RESULT-SCREEN BUTTONS
-// (für später / Clean-Migration)
+// INGAME BACK
 // ============================
-
-// Zurück zum Menü
-document.getElementById('memory-res-menu')?.addEventListener('click', () => {
-  showScreen('menu');
-});
-
-// Nochmal spielen (gleiche Difficulty)
-document.getElementById('memory-res-retry')?.addEventListener('click', () => {
-  if (window.lastMemoryDifficulty === 'easy') {
-    showScreen('memory');
-    startSimonEasy();
-  }
-
-  if (window.lastMemoryDifficulty === 'medium') {
-    showScreen('memory');
-    startSimonMedium();
-  }
-
-  if (window.lastMemoryDifficulty === 'hard') {
-    showScreen('memory');
-    startSimonHard();
-  }
+document.getElementById("memory-back")?.addEventListener("click", () => {
+  stopSimon("abort", false);
+  showScreen("menu");
 });

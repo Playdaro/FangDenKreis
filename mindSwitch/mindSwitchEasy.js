@@ -20,6 +20,7 @@ export function startMindEasy() {
 
   runMindSwitch({
     modeLabel: "Easy",
+    label: 'Leicht',
     durationMs: 30000,
     stepTimeoutMs: 4000,
     generatePrompt,

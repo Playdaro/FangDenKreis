@@ -3,7 +3,7 @@ import { startMaze } from "./reactionMazeCore.js";
 
 export function startMazeEasy() {
   startMaze({
-    label: "Easy",
+    label: "Einfach",
 
     cols: 4,
     rows: 4,

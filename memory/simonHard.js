@@ -1,13 +1,15 @@
-import { startSimon } from './simonBase.js';
-export function startSimonHard(){
+import { startSimon } from "./simonBase.js";
+
+export function startSimonHard() {
   startSimon({
+    diffKey: "hard",
+    label: "Schwer",
     durationSec: 20,
     startSeqLen: 2,
     showMsBase: 550,
-    showMsDecay: 0.960,
+    showMsDecay: 0.96,
     betweenMs: 200,
-    difficulty: 'hard',
-    modeId: 'memory-simon-hard',
-    onError: 'shrink' // Fehler verschärft: Sequenz wird um 1 verkürzt
+    modeId: "memory-simon-hard",
+    onError: "shrink",
   });
 }

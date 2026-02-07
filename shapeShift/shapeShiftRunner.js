@@ -12,7 +12,7 @@ import { getShapeShiftHardConfig } from './shapeShiftHard.js';
 // ============================
 document.getElementById('btn-shape-shift')?.addEventListener('click', () => {
   openDifficultySelect({
-    title: 'Shape Shift',
+    modeKey: 'shapeShift',
     onStart: {
       easy:   () => startFromDifficulty('easy'),
       medium: () => startFromDifficulty('medium'),
@@ -20,6 +20,7 @@ document.getElementById('btn-shape-shift')?.addEventListener('click', () => {
     }
   });
 });
+
 
 // ============================
 // ZENTRALE STARTFUNKTION
