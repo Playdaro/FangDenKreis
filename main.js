@@ -131,3 +131,47 @@ document.querySelectorAll(".modal .modal-close").forEach(btn => {
     if (modal) modal.style.display = "none";
   });
 });
+
+
+(function initFullscreenButton(){
+  const btn = document.getElementById("btn-fullscreen");
+  if (!btn) return;
+
+  // Wenn Fullscreen API fehlt: Button ausblenden
+  const canFullscreen = !!document.documentElement.requestFullscreen && !!document.exitFullscreen;
+  if (!canFullscreen) {
+    btn.classList.add("hidden");
+    return;
+  }
+
+  const setIcon = () => {
+    const isFs = !!document.fullscreenElement;
+    btn.textContent = isFs ? "❎" : "⛶";
+    btn.title = isFs ? "Vollbild verlassen" : "Vollbild";
+    btn.setAttribute("aria-label", isFs ? "Vollbild verlassen" : "Vollbild aktivieren");
+  };
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (e) {
+      // Wenn Browser blockt (z.B. iOS), einfach nix tun
+      console.warn("[fullscreen] toggle failed:", e);
+    } finally {
+      setIcon();
+    }
+  };
+
+  btn.addEventListener("click", toggleFullscreen);
+
+  // Icon bei ESC/Browser-Aktionen automatisch updaten
+  document.addEventListener("fullscreenchange", setIcon);
+
+  // Initialer Zustand
+  setIcon();
+})();
+
